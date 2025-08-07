@@ -1,0 +1,263 @@
+{
+  "ozet_bilgiler": {
+    "isletme_adi": "Kanal-Immobilien GmbH",
+    "adres": "Torstraße 18",
+    "yorum_sayisi": "(35 Reviews)",
+    "anahtar_kelime": "Hausverkauf| Language:de",
+    "tarih": "2025-08-07 13:05:02",
+    "rank_summary": {
+      "Ranked Locations": "1/49",
+      "Un Ranked Locations": "48",
+      "Average rank": "3.00",
+      "Avg total rank": "20.63",
+      "Best rank": "3",
+      "Max Distance": "11.32 km"
+    }
+  },
+  "rakipler": [
+    {
+      "isim": "Mertin Immobilien",
+      "puan_yorum": "(40)",
+      "adres": "Kurze Str. 10, 24784 Westerrönfeld",
+      "kategoriler": "N/A",
+      "web_sitesi": "//mertin-immobilien.de",
+      "fotograf_sayisi": "3",
+      "sahiplenme_durumu": "Claimed",
+      "konum_sayisi": "49",
+      "ortalama_siralama": "1.39"
+    },
+    {
+      "isim": "MEERSTADTLAND GmbH",
+      "puan_yorum": "(294)",
+      "adres": "Dorfstraße 20, 24805 Hamdorf",
+      "kategoriler": "N/A",
+      "web_sitesi": "//meerstadtland.de",
+      "fotograf_sayisi": "36",
+      "sahiplenme_durumu": "Claimed",
+      "konum_sayisi": "49",
+      "ortalama_siralama": "3.80"
+    },
+    {
+      "isim": "Levermann Immobilien",
+      "puan_yorum": "(22)",
+      "adres": "Kampkoppel 8, 24811 Owschlag",
+      "kategoriler": "N/A",
+      "web_sitesi": "//www.levermann-immobilien.de",
+      "fotograf_sayisi": "9",
+      "sahiplenme_durumu": "Claimed",
+      "konum_sayisi": "49",
+      "ortalama_siralama": "4.20"
+    },
+    {
+      "isim": "Liß Agentur",
+      "puan_yorum": "(6)",
+      "adres": "Werner-von-Siemens-Straße 52, 24783 Osterrönfeld",
+      "kategoriler": "N/A",
+      "web_sitesi": "//www.liss-agentur.de",
+      "fotograf_sayisi": "1",
+      "sahiplenme_durumu": "Un Claimed",
+      "konum_sayisi": "49",
+      "ortalama_siralama": "5.31"
+    },
+    {
+      "isim": "VIB Vermittlungsgesellschaft mbH",
+      "puan_yorum": "(16)",
+      "adres": "Poststraße 24, 24589 Nortorf",
+      "kategoriler": "N/A",
+      "web_sitesi": "//www.vib-immobilien-nortorf.de",
+      "fotograf_sayisi": "4",
+      "sahiplenme_durumu": "Claimed",
+      "konum_sayisi": "49",
+      "ortalama_siralama": "8.45"
+    },
+    {
+      "isim": "Starke.Immobilien - Immobilienmakler für Kiel und die Region",
+      "puan_yorum": "(169)",
+      "adres": "Dorfstraße 21, 24109 Melsdorf",
+      "kategoriler": "N/A",
+      "web_sitesi": "//starke.immobilien",
+      "fotograf_sayisi": "127",
+      "sahiplenme_durumu": "Claimed",
+      "konum_sayisi": "48",
+      "ortalama_siralama": "9.96"
+    },
+    {
+      "isim": "Thomas Schulze Immobilien",
+      "puan_yorum": "(13)",
+      "adres": "Erlenring 4a, 24340 Eckernförde",
+      "kategoriler": "N/A",
+      "web_sitesi": "//www.thomas-schulze.info",
+      "fotograf_sayisi": "4",
+      "sahiplenme_durumu": "Claimed",
+      "konum_sayisi": "47",
+      "ortalama_siralama": "9.66"
+    },
+    {
+      "isim": "Baltic Home Immobilien",
+      "puan_yorum": "(40)",
+      "adres": "Fliederweg 10, 24340 Eckernförde",
+      "kategoriler": "N/A",
+      "web_sitesi": "//www.baltic-home-immobilien.de",
+      "fotograf_sayisi": "8",
+      "sahiplenme_durumu": "Claimed",
+      "konum_sayisi": "44",
+      "ortalama_siralama": "10.27"
+    },
+    {
+      "isim": "VON POLL IMMOBILIEN Neumünster",
+      "puan_yorum": "(91)",
+      "adres": "Großflecken 48, 24534 Neumünster",
+      "kategoriler": "N/A",
+      "web_sitesi": "//www.von-poll.com",
+      "fotograf_sayisi": "6",
+      "sahiplenme_durumu": "Claimed",
+      "konum_sayisi": "44",
+      "ortalama_siralama": "13.73"
+    },
+    {
+      "isim": "Ostseemakler GmbH Schleswig",
+      "puan_yorum": "(12)",
+      "adres": "Lollfuß 24, 24837 Schleswig",
+      "kategoriler": "N/A",
+      "web_sitesi": "//www.ostseemakler.de",
+      "fotograf_sayisi": "4",
+      "sahiplenme_durumu": "Claimed",
+      "konum_sayisi": "43",
+      "ortalama_siralama": "9.72"
+    },
+    {
+      "isim": "FALC Immobilien Rendsburg",
+      "puan_yorum": "(2)",
+      "adres": "Ritzebüttler Weg 6a, 24589 Nortorf",
+      "kategoriler": "N/A",
+      "web_sitesi": "//www.falcimmo.de",
+      "fotograf_sayisi": "1",
+      "sahiplenme_durumu": "Claimed",
+      "konum_sayisi": "41",
+      "ortalama_siralama": "10.71"
+    },
+    {
+      "isim": "immoverkauf24 GmbH",
+      "puan_yorum": "(119)",
+      "adres": "Gasstraße 18, 22761 Hamburg",
+      "kategoriler": "N/A",
+      "web_sitesi": "//www.immoverkauf24.de",
+      "fotograf_sayisi": "4",
+      "sahiplenme_durumu": "Claimed",
+      "konum_sayisi": "41",
+      "ortalama_siralama": "13.78"
+    },
+    {
+      "isim": "Erdmann Immobilien GmbH",
+      "puan_yorum": "(18)",
+      "adres": "Schleistraße 18, 24837 Schleswig",
+      "kategoriler": "N/A",
+      "web_sitesi": "//www.erdmann-immobilien.net",
+      "fotograf_sayisi": "4",
+      "sahiplenme_durumu": "Claimed",
+      "konum_sayisi": "40",
+      "ortalama_siralama": "10.65"
+    },
+    {
+      "isim": "Clausen Immobilien GmbH",
+      "puan_yorum": "(227)",
+      "adres": "Bahnhofstraße 46, 24534 Neumünster",
+      "kategoriler": "N/A",
+      "web_sitesi": "//www.clausen-immob.de",
+      "fotograf_sayisi": "9",
+      "sahiplenme_durumu": "Claimed",
+      "konum_sayisi": "38",
+      "ortalama_siralama": "13.08"
+    },
+    {
+      "isim": "Stadt & Land Immobilien GmbH & Co. KG",
+      "puan_yorum": "(11)",
+      "adres": "Rodenbeker Weg 1, 24254 Rumohr",
+      "kategoriler": "N/A",
+      "web_sitesi": "//stadtundland.info",
+      "fotograf_sayisi": "2",
+      "sahiplenme_durumu": "Claimed",
+      "konum_sayisi": "37",
+      "ortalama_siralama": "12.54"
+    },
+    {
+      "isim": "Jacobsen Immobilienagentur e.K.",
+      "puan_yorum": "(34)",
+      "adres": "Königstraße 31, 24837 Schleswig",
+      "kategoriler": "N/A",
+      "web_sitesi": "//www.jacobsen-immo.de",
+      "fotograf_sayisi": "16",
+      "sahiplenme_durumu": "Claimed",
+      "konum_sayisi": "31",
+      "ortalama_siralama": "11.10"
+    },
+    {
+      "isim": "A-Z Immobilien",
+      "puan_yorum": "(30)",
+      "adres": "Gutenbergstraße 48, 24536 Neumünster",
+      "kategoriler": "N/A",
+      "web_sitesi": "//www.a-z-immob.de",
+      "fotograf_sayisi": "15",
+      "sahiplenme_durumu": "Claimed",
+      "konum_sayisi": "27",
+      "ortalama_siralama": "13.67"
+    },
+    {
+      "isim": "Immobilien im Norden",
+      "puan_yorum": "(8)",
+      "adres": "Ruhm 3, 24247 Mielkendorf",
+      "kategoriler": "N/A",
+      "web_sitesi": "//immobilienimnorden.de",
+      "fotograf_sayisi": "183",
+      "sahiplenme_durumu": "Claimed",
+      "konum_sayisi": "27",
+      "ortalama_siralama": "14.74"
+    },
+    {
+      "isim": "Premium Immobilien Nord GmbH",
+      "puan_yorum": "(94)",
+      "adres": "KiWi-Tower, Am Kiel-Kanal 1, 24106 Kiel",
+      "kategoriler": "N/A",
+      "web_sitesi": "//pi-nord.com",
+      "fotograf_sayisi": "3",
+      "sahiplenme_durumu": "Claimed",
+      "konum_sayisi": "24",
+      "ortalama_siralama": "15.58"
+    },
+    {
+      "isim": "Harald Schulz Immobilien",
+      "puan_yorum": "(2)",
+      "adres": "N/A",
+      "kategoriler": "N/A",
+      "web_sitesi": "N/A",
+      "fotograf_sayisi": "0",
+      "sahiplenme_durumu": "Claimed",
+      "konum_sayisi": "23",
+      "ortalama_siralama": "11.65"
+    }
+  ],
+  "sponsorlu_listeler": [
+    {
+      "isim": "Möllerherm Immobilien - Büro Rendsburg",
+      "puan_yorum": "(22 Reviews)",
+      "gorulme_sayisi": "Appeared in9searches"
+    },
+    {
+      "isim": "VIB Vermittlungsgesellschaft mbH",
+      "puan_yorum": "(16 Reviews)",
+      "gorulme_sayisi": "Appeared in3searches"
+    },
+    {
+      "isim": "Engel & Völkers",
+      "puan_yorum": "(92 Reviews)",
+      "gorulme_sayisi": "Appeared in1searches"
+    },
+    {
+      "isim": "Redhome Immobilien GmbH",
+      "puan_yorum": "(63 Reviews)",
+      "gorulme_sayisi": "Appeared in1searches"
+    }
+  ],
+  "detayli_sonuclar": [],
+  "harita_verileri": []
+}
