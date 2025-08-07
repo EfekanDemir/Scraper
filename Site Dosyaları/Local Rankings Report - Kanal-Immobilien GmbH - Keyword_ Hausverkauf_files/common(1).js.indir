@@ -1,0 +1,110 @@
+function getcolor(pos) {
+    var none = '899499';
+    if (pos == 0) {
+        return none;
+    }
+    if (pos == 1) {
+        return '008a00';
+    }
+    else if (pos == 2) {
+        return '00bd00';
+    }
+    else if (pos == 3) {
+        return '00d600';//'00cc00';
+    }
+    else if (pos == 4) {
+        return '93C632';
+    }
+    else if (pos == 5) {
+        return '93C632';
+    }
+    else if (pos == 6) {
+        return 'CADB00';
+    }
+    else if (pos == 7) {
+        return 'CADB00';
+    }
+    else if (pos == 8) {
+        return 'FFD700';
+    }
+    else if (pos == 9) {
+        return 'FCF100';
+    }
+    else if (pos == 10) {
+        return 'F9C200';
+    }
+    else if (pos == 11) {
+        return 'F1CF00';
+    }
+    else if (pos == 12) {
+        return 'D1B500';
+    }
+    else if (pos == 13) {
+        return 'F09200';
+    }
+    else if (pos == 14) {
+        return 'F09200';
+    }
+    else if (pos == 15) {
+        return 'F09200';
+    }
+    else if (pos == 16) {
+        return 'EA6311';
+    }
+    else if (pos == 17) {
+        return 'EA6311';
+    }
+    else if (pos == 18) {
+        return 'E3141A';
+    }
+    else if (pos == 19) {
+        return 'E3141A';
+    }
+    else if (pos == 20) {
+        return 'E3141A';
+    }
+    else if (pos == 98) {
+        return '46027a';//its in progress
+    }
+    else if (pos > 20) {
+        return none;
+    }
+
+    return none;
+}
+function PercentageToColor( percentage)
+{
+    var color = percentage / 20;
+    if (percentage > 99) {
+        color = 1;
+    }
+    else if (percentage > 90) {
+        color = 2;
+    }
+    else if (percentage > 80) {
+        color = 3;
+    }
+    else if (percentage > 70) {
+        color = 5;
+    }
+    else if (percentage > 50) {
+        color = 10;
+    }
+    else if (percentage > 40) {
+        color = 15;
+    }
+    else if (percentage > 30) {
+        color = 17;
+    }
+    else if (percentage > 20) {
+        color = 18;
+    }
+    else if (percentage > 10) {
+        color = 19;
+    }
+    else if (percentage > 0) {
+        color = 20;
+    }
+
+    return color;
+}
