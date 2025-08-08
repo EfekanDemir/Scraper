@@ -7,6 +7,7 @@ HTML parsing işlemleri için yardımcı modül
 import re
 from typing import Dict, Any, List, Optional
 from bs4 import BeautifulSoup
+from urllib.parse import urlparse, parse_qs
 
 
 class HTMLParser:
@@ -87,6 +88,33 @@ class HTMLParser:
             "Puan/Yorum": combined,
         }
     
+    def _extract_cid_from_url(self, url: Optional[str]) -> str:
+        """Verilen Google Maps URL içinden CID değerini çıkarır.
+        Çeşitli parametre adlarını (cid, ludocid) ve URL biçimlerini dener.
+        """
+        if not url:
+            return "N/A"
+        try:
+            parsed = urlparse(url)
+            qs = parse_qs(parsed.query)
+            # Yaygın parametre adları
+            for key in ("cid", "ludocid"):
+                if key in qs and qs[key]:
+                    return qs[key][0]
+            # Bazı linklerde cid parametresi path veya fragmente gömülü olabilir
+            # Örn: .../maps?hl=tr&gl=tr#cid=1234567890
+            if parsed.fragment and "cid=" in parsed.fragment:
+                frag_qs = parse_qs(parsed.fragment)
+                if "cid" in frag_qs and frag_qs["cid"]:
+                    return frag_qs["cid"][0]
+            # Son çare: doğrudan cid= desenini ara
+            m = re.search(r"[?&#]cid=([0-9]+)", url)
+            if m:
+                return m.group(1)
+        except Exception:
+            pass
+        return "N/A"
+    
     def parse_scan_information(self, soup: BeautifulSoup) -> Dict[str, Any]:
         """
         Scan Information tablosunu parse eder.
@@ -135,7 +163,7 @@ class HTMLParser:
             soup: BeautifulSoup objesi
             
         Returns:
-            Rank Summary verileri
+        	    Rank Summary verileri
         """
         results = {}
         
@@ -204,11 +232,18 @@ class HTMLParser:
             
             for row in rows:
                 rating_info = self._extract_rating_and_reviews(row)
+                name_link = row.select_one("a.ext[href]")
+                name_text = self._get_text(name_link)
+                maps_url = name_link.get("href") if name_link else None
+                cid_value = self._extract_cid_from_url(maps_url)
+
                 comp = {
-                    "İsim": self._get_text(row.select_one("a.ext")),
+                    "İsim": name_text,
                     "Puan": rating_info.get("Puan", "N/A"),
                     "Yorum Sayısı": rating_info.get("Yorum Sayısı", "0"),
                     "Puan/Yorum": rating_info.get("Puan/Yorum", "N/A"),
+                    "Maps URL": maps_url or "N/A",
+                    "CID": cid_value,
                 }
                 
                 # Adres
@@ -274,9 +309,13 @@ class HTMLParser:
             
             for row in rows:
                 tds = row.find_all("td")
-                isim = self._get_text(row.select_one("a.ext"))
+                name_link = row.select_one("a.ext[href]")
+                isim = self._get_text(name_link)
                 rating_info = self._extract_rating_and_reviews(row)
                 gorulme_sayisi = self._get_text(tds[-1] if tds else None)
+
+                maps_url = name_link.get("href") if name_link else None
+                cid_value = self._extract_cid_from_url(maps_url)
                 
                 listings.append({
                     "İsim": isim,
@@ -284,6 +323,8 @@ class HTMLParser:
                     "Yorum Sayısı": rating_info.get("Yorum Sayısı", "0"),
                     "Puan/Yorum": rating_info.get("Puan/Yorum", "N/A"),
                     "Görülme Sayısı": gorulme_sayisi,
+                    "Maps URL": maps_url or "N/A",
+                    "CID": cid_value,
                 })
                 
         except Exception as e:
@@ -320,6 +361,11 @@ class HTMLParser:
                     address_div = rating_span.find_next("div")
                 address = self._get_text(address_div)
                 
+                # Detay panelinde bazen isim linki yer alabilir
+                name_link = panel.select_one("h5 a[href]")
+                maps_url = name_link.get("href") if name_link else None
+                cid_value = self._extract_cid_from_url(maps_url)
+                
                 detaylar.append({
                     "Sıra": rank,
                     "İsim": name,
@@ -327,6 +373,8 @@ class HTMLParser:
                     "Yorum Sayısı": rating_info.get("Yorum Sayısı", "0"),
                     "Puan/Yorum": rating_info.get("Puan/Yorum", "N/A"),
                     "Adres": address,
+                    "Maps URL": maps_url or "N/A",
+                    "CID": cid_value,
                 })
                 
         except Exception as e:
