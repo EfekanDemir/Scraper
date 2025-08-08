@@ -5,17 +5,45 @@ Veri dışa aktarma işlemleri için yardımcı modül
 """
 
 import json
+import os
 import pandas as pd
-from typing import Dict, Any, List
+from typing import Dict, Any, List, Optional
 from datetime import datetime
+
+try:
+    # Supabase Python SDK
+    from supabase import create_client, Client
+except Exception:
+    create_client = None
+    Client = None
 
 
 class DataExporter:
     """Veri dışa aktarma işlemleri için sınıf"""
     
-    def __init__(self):
-        """DataExporter sınıfını başlatır."""
-        pass
+    def __init__(self, supabase_url: Optional[str] = None, supabase_key: Optional[str] = None):
+        """DataExporter sınıfını başlatır ve Supabase istemcisini hazırlar.
+        
+        Args:
+            supabase_url: Supabase proje URL'si (örn: https://<ref>.supabase.co)
+            supabase_key: Supabase anon/public API anahtarı
+        """
+        self.supabase: Optional[Client] = None
+        # Önce parametre, sonra env'den al
+        resolved_url = supabase_url or os.getenv("SUPABASE_URL")
+        resolved_key = supabase_key or os.getenv("SUPABASE_ANON_KEY")
+        # create_client kullanılabilir ve kimlikler mevcutsa başlat
+        if create_client and resolved_url and resolved_key:
+            try:
+                self.supabase = create_client(resolved_url, resolved_key)
+            except Exception as exc:
+                print(f"Supabase istemcisi oluşturulamadı: {exc}")
+                self.supabase = None
+        else:
+            if not create_client:
+                print("Supabase kütüphanesi yüklü değil. requirements.txt dosyasına 'supabase>=2.4.0' ekleyin ve kurun.")
+            if not (resolved_url and resolved_key):
+                print("SUPABASE_URL ve/veya SUPABASE_ANON_KEY eksik. Ortam değişkeni olarak ayarlayın veya kurucuya parametre geçin.")
     
     def save_to_json(self, data: Dict[str, Any], filename: str = "scraped_data.json") -> bool:
         """
@@ -125,6 +153,87 @@ class DataExporter:
             print(f"CSV kaydetme hatası: {e}")
             return False
     
+    def save_to_supabase(self, data: Dict[str, Any]) -> bool:
+        """Verileri dosya oluşturmadan doğrudan Supabase tablolarına yazar.
+        
+        Varsayılan olarak aşağıdaki anahtarlar aynı isimli tablolara yazılır:
+        - ozet_bilgiler, rakipler, sponsorlu_listeler, detayli_sonuclar,
+          harita_verileri, javascript_verileri, api_verileri
+        
+        Not: Tabloların Supabase Postgres tarafında önceden oluşturulmuş olması gerekir.
+        Önerilen minimum sütunlar: id (uuid default), scraped_at (timestamptz), url (text), payload (jsonb)
+        Veya alan-alan eşleşecek kolonlar.
+        """
+        if not self.supabase:
+            print("Supabase istemcisi hazır değil. Lütfen kimlik bilgilerini sağlayın ve supabase paketini kurun.")
+            return False
+        
+        metadata = data.get("metadata", {}) or {}
+        scraped_at = metadata.get("scraped_at") or datetime.utcnow().isoformat()
+        source_url = metadata.get("url") or None
+        
+        def to_rows(value: Any) -> List[Dict[str, Any]]:
+            if isinstance(value, list):
+                rows: List[Dict[str, Any]] = []
+                for it in value:
+                    if isinstance(it, dict):
+                        rows.append(it)
+                    else:
+                        rows.append({"value": it})
+                return rows
+            elif isinstance(value, dict):
+                return [value]
+            else:
+                return [{"value": value}]
+        
+        def add_meta(row: Dict[str, Any]) -> Dict[str, Any]:
+            # Eğer tabloda birebir kolonlar tanımlı değilse, 'payload' sütunu kullanılabilir.
+            # Burada iki yaklaşımı aynı anda destekliyoruz: birebir kolon eşleşmesi + payload jsonb
+            enriched = dict(row)
+            enriched.setdefault("scraped_at", scraped_at)
+            if source_url:
+                enriched.setdefault("url", source_url)
+            # payload alanı yoksa ham satırı payload olarak da geçelim (şema esnekliği için)
+            if "payload" not in enriched:
+                try:
+                    enriched_payload = row if isinstance(row, dict) else {"value": row}
+                    enriched["payload"] = enriched_payload
+                except Exception:
+                    pass
+            return enriched
+        
+        tables = [
+            "ozet_bilgiler",
+            "rakipler",
+            "sponsorlu_listeler",
+            "detayli_sonuclar",
+            "harita_verileri",
+            "javascript_verileri",
+            "api_verileri",
+        ]
+        
+        overall_success = True
+        for key, value in data.items():
+            if key == "metadata":
+                continue
+            if key not in tables:
+                # Yine de yazmayı dene; kullanıcı farklı bir tablo kurmuş olabilir
+                pass
+            try:
+                rows = [add_meta(r) for r in to_rows(value)]
+                if not rows:
+                    continue
+                # Büyük listeleri parçala
+                chunk_size = 500
+                for i in range(0, len(rows), chunk_size):
+                    chunk = rows[i:i+chunk_size]
+                    self.supabase.table(key).insert(chunk).execute()
+                print(f"Supabase tablosuna yazıldı: {key} ({len(rows)} satır)")
+            except Exception as exc:
+                overall_success = False
+                print(f"Supabase yazma hatası [{key}]: {exc}")
+        return overall_success
+    
     def print_summary(self, data: Dict[str, Any]) -> None:
         """
         Çekilen verilerin özetini yazdırır.
@@ -151,27 +260,19 @@ class DataExporter:
     
     def export_all_formats(self, data: Dict[str, Any], base_filename: str = "scraped_data") -> Dict[str, bool]:
         """
-        Verileri tüm formatlarda dışa aktarır.
+        Verileri Supabase'e dışa aktarır (dosya oluşturulmaz).
         
         Args:
             data: Kaydedilecek veri
-            base_filename: Temel dosya adı
+            base_filename: (artık kullanılmıyor) Eski dosya adı uyumluluğu için tutuldu
             
         Returns:
-            Her format için başarı durumu
+            İşlem sonuçları
         """
         results = {}
         
-        # JSON
-        json_filename = f"{base_filename}.json"
-        results["json"] = self.save_to_json(data, json_filename)
-        
-        # Excel
-        excel_filename = f"{base_filename}.xlsx"
-        results["excel"] = self.save_to_excel(data, excel_filename)
-        
-        # CSV
-        results["csv"] = self.save_to_csv(data, base_filename)
+        # Sadece Supabase'e gönder
+        results["supabase"] = self.save_to_supabase(data)
         
         return results
     

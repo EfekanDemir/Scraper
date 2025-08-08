@@ -37,7 +37,9 @@ class MainScraper:
                  timeout: int = 30,
                  use_selenium: bool = False,
                  headless: bool = True,
-                 rate_limit: float = 1.0):
+                 rate_limit: float = 1.0,
+                 supabase_url: Optional[str] = None,
+                 supabase_key: Optional[str] = None):
         """
         MainScraper sınıfını başlatır.
         
@@ -47,6 +49,8 @@ class MainScraper:
             use_selenium: Selenium kullanımı
             headless: Selenium headless modu
             rate_limit: Rate limiting süresi
+            supabase_url: Supabase proje URL'si
+            supabase_key: Supabase anon/public API anahtarı
         """
         # Modülleri başlat
         self.web_client = WebClient(
@@ -64,7 +68,11 @@ class MainScraper:
             timeout=timeout,
             rate_limit=rate_limit
         )
-        self.data_exporter = DataExporter()
+        # Supabase kimlik bilgilerini doğrudan DataExporter'a geç
+        self.data_exporter = DataExporter(
+            supabase_url=supabase_url or os.getenv("SUPABASE_URL"),
+            supabase_key=supabase_key or os.getenv("SUPABASE_ANON_KEY"),
+        )
         
         # Ayarları sakla
         self.use_selenium = use_selenium
@@ -186,23 +194,19 @@ class MainScraper:
     
     def export_data(self, data: Dict[str, Any], base_filename: str = "modular_scraped_data") -> Dict[str, bool]:
         """
-        Verileri tüm formatlarda dışa aktarır.
+        Verileri Supabase'e dışa aktarır.
         
         Args:
             data: Çekilen veriler
-            base_filename: Temel dosya adı
+            base_filename: (artık dosya üretilmiyor) uyumluluk için tutuldu
             
         Returns:
             Her format için başarı durumu
         """
-        print("\n9. Veriler dışa aktarılıyor...")
+        print("\n9. Veriler Supabase'e aktarılıyor...")
         
-        # Zaman damgalı dosya adı oluştur
-        timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-        filename = f"{base_filename}_{timestamp}"
-        
-        # Tüm formatlarda dışa aktar
-        results = self.data_exporter.export_all_formats(data, filename)
+        # Tüm formatlarda dışa aktar (yalnızca Supabase)
+        results = self.data_exporter.export_all_formats(data, base_filename)
         
         # Özet göster
         self.data_exporter.print_summary(data)
@@ -236,17 +240,17 @@ class MainScraper:
             print("MODÜLER SCRAPER SONUÇLARI")
             print("=" * 60)
             
-            success_count = sum(export_results.values())
+            success_count = sum(1 for v in export_results.values() if v)
             total_formats = len(export_results)
             
-            print(f"Başarılı format sayısı: {success_count}/{total_formats}")
+            print(f"Başarılı çıktı sayısı: {success_count}/{total_formats}")
             
             for format_name, success in export_results.items():
                 status = "✅" if success else "❌"
                 print(f"{status} {format_name.upper()}")
             
             print("=" * 60)
-            print("🎉 Modüler scraper başarıyla tamamlandı!")
+            print("🎉 Supabase aktarımı tamamlandı!")
             
             return success_count > 0
             
@@ -267,21 +271,28 @@ def main():
     """Ana fonksiyon - örnek kullanım"""
     url = "https://www.local-rank.report/scan/97919fde-e478-4081-983f-7e0065b6b5bb"
     
+    # Supabase bilgileri:
+    # Kullanıcı anahtarı verilmiş. Proje ref: fmaqwwjilpcgjwzolrvf
+    # URL: https://fmaqwwjilpcgjwzolrvf.supabase.co
+    supabase_url = os.getenv("SUPABASE_URL") or "https://fmaqwwjilpcgjwzolrvf.supabase.co"
+    supabase_key = os.getenv("SUPABASE_ANON_KEY") or (
+        "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImZtYXF3d2ppbHBjZ2p3em9scnZmIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTQ2NTk4NTAsImV4cCI6MjA3MDIzNTg1MH0.QQrhhEgWR_VHM8a6N6AL5oofx9vXq0TQL4C-mpJ-vHA"
+    )
+    
     # MainScraper örneği oluştur
     scraper = MainScraper(
         use_selenium=False,  # Selenium kullanmadan başla
         rate_limit=1.0,      # 1 saniye bekleme
-        timeout=30
+        timeout=30,
+        supabase_url=supabase_url,
+        supabase_key=supabase_key,
     )
     
     # Tam işlemi çalıştır
     success = scraper.run(url, "modular_scraped_data")
     
     if success:
-        print("\n📁 Oluşturulan dosyalar:")
-        print("   - modular_scraped_data_YYYYMMDD_HHMMSS.json")
-        print("   - modular_scraped_data_YYYYMMDD_HHMMSS.xlsx")
-        print("   - modular_scraped_data_YYYYMMDD_HHMMSS_*.csv")
+        print("\n📦 Veriler Supabase'e aktarıldı. Yerel dosya üretilmedi.")
     else:
         print("\n❌ İşlem başarısız oldu")
 
