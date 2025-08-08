@@ -231,7 +231,23 @@ class DataExporter:
                 print(f"Supabase tablosuna yazıldı: {key} ({len(rows)} satır)")
             except Exception as exc:
                 overall_success = False
-                print(f"Supabase yazma hatası [{key}]: {exc}")
+                error_msg = str(exc)
+                
+                # RLS ve yetki hatalarını daha açık hale getir
+                if "42501" in error_msg:
+                    print(f"❌ Supabase yazma hatası [{key}]: YETKİ SORUNU (42501)")
+                    print(f"   Çözüm önerileri:")
+                    print(f"   1. '{key}' tablosunun RLS politikalarını kontrol edin")
+                    print(f"   2. Tablo mevcut değilse schema.sql'i çalıştırın")
+                    print(f"   3. Geliştirme için Service Key kullanmayı deneyin")
+                elif "42P01" in error_msg:
+                    print(f"❌ Supabase yazma hatası [{key}]: TABLO MEVCUT DEĞİL (42P01)")
+                    print(f"   Çözüm: schema.sql dosyasını Supabase SQL Editor'da çalıştırın")
+                elif "23505" in error_msg:
+                    print(f"⚠️  Supabase yazma hatası [{key}]: DUPLICATE KEY - Bazı kayıtlar zaten mevcut")
+                else:
+                    print(f"❌ Supabase yazma hatası [{key}]: {exc}")
+                print(f"   Tam hata mesajı: {error_msg}")
         return overall_success
     
     def print_summary(self, data: Dict[str, Any]) -> None:

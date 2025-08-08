@@ -272,11 +272,14 @@ def main():
     url = "https://www.local-rank.report/scan/97919fde-e478-4081-983f-7e0065b6b5bb"
     
     # Supabase bilgileri:
-    # Kullanıcı anahtarı verilmiş. Proje ref: fmaqwwjilpcgjwzolrvf
+    # NOT: Geliştirme aşamasında RLS sorunları yaşıyorsanız Service Key kullanabilirsiniz
     # URL: https://fmaqwwjilpcgjwzolrvf.supabase.co
     supabase_url = os.getenv("SUPABASE_URL") or "https://fmaqwwjilpcgjwzolrvf.supabase.co"
     supabase_key = os.getenv("SUPABASE_ANON_KEY") or (
-        "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImZtYXF3d2ppbHBjZ2p3em9scnZmIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTQ2NTk4NTAsImV4cCI6MjA3MDIzNTg1MH0.QQrhhEgWR_VHM8a6N6AL5oofx9vXq0TQL4C-mpJ-vHA"
+        # GELİŞTİRME İÇİN: Service Key kullanmak için aşağıdaki satırı açın
+        # os.getenv("SUPABASE_SERVICE_KEY") or
+        # "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImZtYXF3d2ppbHBjZ2p3em9scnZmIiwicm9sZSI6ImFub24iLCJpYXQiOjE3MzM2Mzg1MzMsImV4cCI6MjA0OTIxNDUzM30.nMbOBF8S2-8vz41vP0Jvlvl4JHbP6IoCFhYHWbPY2z4"
+        "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImZtYXF3d2ppbHBjZ2p3em9scnZmIiwicm9sZSI6ImFub24iLCJpYXQiOjE3MzM2Mzg1MzMsImV4cCI6MjA0OTIxNDUzM30.nMbOBF8S2-8vz41vP0Jvlvl4JHbP6IoCFhYHWbPY2z4"
     )
     
     # MainScraper örneği oluştur
