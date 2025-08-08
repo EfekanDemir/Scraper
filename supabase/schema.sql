@@ -4,10 +4,11 @@
 BEGIN;
 
 -- 1) Extensions & settings
-CREATE EXTENSION IF NOT EXISTS pgcrypto; -- gen_random_uuid(), gen_random_bytes()
-CREATE EXTENSION IF NOT EXISTS pg_trgm;  -- text search indexing support
+CREATE SCHEMA IF NOT EXISTS extensions;
+CREATE EXTENSION IF NOT EXISTS pgcrypto WITH SCHEMA extensions; -- gen_random_uuid(), gen_random_bytes()
+CREATE EXTENSION IF NOT EXISTS pg_trgm WITH SCHEMA extensions;  -- text search indexing support
 
-SET search_path = public;
+SET search_path = public, extensions;
 
 -- 2) Types
 DO $$ BEGIN
