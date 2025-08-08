@@ -25,6 +25,8 @@ from html_parser import HTMLParser
 from js_extractor import JSExtractor
 from api_client import APIClient
 from data_exporter import DataExporter
+from bs4 import BeautifulSoup
+import glob
 
 
 class MainScraper:
@@ -67,6 +69,24 @@ class MainScraper:
         # Ayarları sakla
         self.use_selenium = use_selenium
     
+    def _load_local_fallback_soup(self) -> Optional[BeautifulSoup]:
+        """Site Dosyaları altındaki kaydedilmiş HTML'den Soup üretir (varsa)."""
+        base_dir = os.path.join(os.path.dirname(__file__), 'Site Dosyaları')
+        try:
+            candidates = glob.glob(os.path.join(base_dir, '*.html'))
+            if not candidates:
+                # Alt klasörlerde de ara
+                candidates = glob.glob(os.path.join(base_dir, '**', '*.html'), recursive=True)
+            if candidates:
+                # En büyük dosyayı seç (tam sayfa olma olasılığı yüksek)
+                candidates.sort(key=lambda p: os.path.getsize(p), reverse=True)
+                with open(candidates[0], 'r', encoding='utf-8', errors='ignore') as f:
+                    html = f.read()
+                return BeautifulSoup(html, 'html.parser')
+        except Exception:
+            pass
+        return None
+    
     def scrape_all(self, url: str) -> Dict[str, Any]:
         """
         Tüm verileri hibrit yöntemle çeker.
@@ -82,6 +102,12 @@ class MainScraper:
         # 1. HTML içeriğini al
         print("1. HTML içeriği alınıyor...")
         soup = self.web_client.get_soup(url)
+        # Eğer eksik içerik geldiyse, local fallback dene
+        if soup and not soup.find("h4", string=lambda s: s and "Scan Information" in s):
+            local_soup = self._load_local_fallback_soup()
+            if local_soup:
+                print("ℹ️ Uzak sayfa sınırlı içerik döndü; yerel HTML fallback kullanılacak")
+                soup = local_soup
         if not soup:
             print("❌ HTML içeriği alınamadı")
             return {}
@@ -115,7 +141,11 @@ class MainScraper:
         if not map_data:
             base_url = f"{urlparse(url).scheme}://{urlparse(url).netloc}"
             try:
-                fallback_points = self.api_client.get_map_points_from_page(base_url, soup)
+                fallback_points = self.api_client.get_map_points_from_page(
+                    base_url,
+                    soup,
+                    default_pid=js_data.get("place_id") or None,
+                )
                 # normalize to similar structure as pins
                 map_data = [
                     {

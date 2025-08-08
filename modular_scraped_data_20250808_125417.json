@@ -1,0 +1,20 @@
+{
+  "ozet_bilgiler": {},
+  "rakipler": [],
+  "sponsorlu_listeler": [],
+  "detayli_sonuclar": [],
+  "harita_verileri": [],
+  "api_verileri": {},
+  "javascript_verileri": {
+    "pinz": [],
+    "scan_guid": "",
+    "place_id": ""
+  },
+  "metadata": {
+    "scraped_at": "2025-08-08T12:54:17.223348",
+    "url": "https://www.local-rank.report/scan/97919fde-e478-4081-983f-7e0065b6b5bb",
+    "scraper_version": "4.0",
+    "method": "modular_hybrid",
+    "selenium_used": false
+  }
+}
