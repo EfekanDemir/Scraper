@@ -110,7 +110,30 @@ class MainScraper:
         results["detayli_sonuclar"] = self.html_parser.parse_detayli_sonuclar(soup)
         
         print("7. Harita verileri çekiliyor...")
-        results["harita_verileri"] = self.js_extractor.extract_map_data(js_data)
+        map_data = self.js_extractor.extract_map_data(js_data)
+        # JS ile gelmezse analytics fallback ile üret
+        if not map_data:
+            base_url = f"{urlparse(url).scheme}://{urlparse(url).netloc}"
+            try:
+                fallback_points = self.api_client.get_map_points_from_page(base_url, soup)
+                # normalize to similar structure as pins
+                map_data = [
+                    {
+                        "lat": p.get("lat"),
+                        "lon": p.get("lon"),
+                        "label": None,
+                        "title": None,
+                        "url": p.get("url"),
+                        "color": None,
+                        "cid": None,
+                        "search_guid": p.get("search_guid"),
+                        "pid": p.get("pid"),
+                    }
+                    for p in fallback_points
+                ]
+            except Exception as e:
+                print(f"Harita fallback hatası: {e}")
+        results["harita_verileri"] = map_data
         
         # 4. API verilerini çek
         print("8. API verileri çekiliyor...")

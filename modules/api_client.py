@@ -6,10 +6,11 @@ API çağrıları için yardımcı modül
 
 import time
 import random
-from typing import Dict, Any, Optional, List
+from typing import Dict, Any, Optional, List, Tuple
 from urllib.parse import urljoin
 import requests
 from bs4 import BeautifulSoup
+import re
 
 
 class APIClient:
@@ -121,27 +122,46 @@ class APIClient:
                         table_data.append([self._get_text(cell) for cell in cells])
                 data[f"table_{i}"] = table_data
                 
+            # Başlıktan lat/lon yakala
+            lat, lon = self._extract_lat_lon_from_soup(soup)
+            if lat is not None and lon is not None:
+                data["lat"] = lat
+                data["lon"] = lon
+                
         except Exception as e:
             print(f"HTML response parse hatası: {e}")
         
         return data
     
-    def get_competitors_data(self, base_url: str, scan_guid: str) -> Optional[Dict[str, Any]]:
-        """
-        Competitors API'sini çağırır.
-        
-        Args:
-            base_url: Temel URL
-            scan_guid: Scan GUID
-            
-        Returns:
-            Competitors verisi
-        """
-        if not scan_guid:
-            return None
-        
-        competitors_url = f"/scans/get-competitors-list?scan_guid={scan_guid}"
-        return self.call_endpoint(base_url, competitors_url)
+    def _extract_lat_lon_from_soup(self, soup: BeautifulSoup) -> Tuple[Optional[float], Optional[float]]:
+        """Analytics HTML'indeki başlıktan enlem/boylam çıkarır."""
+        try:
+            header = soup.find(["h4", "h3"], string=re.compile(r"Results for", re.I))
+            full_text = header.get_text(" ", strip=True) if header else soup.get_text(" ", strip=True)
+            m = re.search(r"\bat\s+(-?\d{1,3}\.\d+)\s*,\s*(-?\d{1,3}\.\d+)", full_text)
+            if m:
+                lat = float(m.group(1))
+                lon = float(m.group(2))
+                return lat, lon
+        except Exception:
+            pass
+        return None, None
+    
+    def extract_analytics_urls_from_soup(self, soup: BeautifulSoup) -> List[str]:
+        """Sayfa HTML içinden tüm analytics endpoint URL'lerini çıkarır."""
+        try:
+            page_txt = str(soup)
+            urls = re.findall(r"(/analytics/GetResults\?[^\s'\"]+)", page_txt)
+            # Tekilleştir ve sıralı koru
+            seen = set()
+            unique_urls: List[str] = []
+            for u in urls:
+                if u not in seen:
+                    seen.add(u)
+                    unique_urls.append(u)
+            return unique_urls
+        except Exception:
+            return []
     
     def get_analytics_data(self, base_url: str, pinz_data: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
         """
@@ -173,6 +193,53 @@ class APIClient:
         
         return analytics_data
     
+    def get_map_points_from_page(self, base_url: str, soup: BeautifulSoup, limit: int = 60) -> List[Dict[str, Any]]:
+        """Sayfadan analytics linklerini tarayıp her biri için lat/lon bilgisiyle harita noktaları üretir."""
+        points: List[Dict[str, Any]] = []
+        try:
+            urls = self.extract_analytics_urls_from_soup(soup)
+            for endpoint in urls[:limit]:
+                try:
+                    full_url = urljoin(base_url, endpoint)
+                    self._rate_limit()
+                    resp = self.session.get(full_url, timeout=self.timeout)
+                    resp.raise_for_status()
+                    soup_resp = BeautifulSoup(resp.text, "html.parser")
+                    lat, lon = self._extract_lat_lon_from_soup(soup_resp)
+                    # search_guid ve pid'i endpoint üzerinden çıkar
+                    m_guid = re.search(r"search_guid=([0-9a-fA-F-]{36})", endpoint)
+                    m_pid = re.search(r"[?&]pid=([^&]+)", endpoint)
+                    points.append({
+                        "lat": lat,
+                        "lon": lon,
+                        "url": endpoint,
+                        "search_guid": m_guid.group(1) if m_guid else None,
+                        "pid": m_pid.group(1) if m_pid else None,
+                    })
+                except Exception as e:
+                    print(f"Analytics nokta alma hatası: {e}")
+                    continue
+        except Exception as e:
+            print(f"Analytics URL çıkarma hatası: {e}")
+        return points
+    
+    def get_competitors_data(self, base_url: str, scan_guid: str) -> Optional[Dict[str, Any]]:
+        """
+        Competitors API'sini çağırır.
+        
+        Args:
+            base_url: Temel URL
+            scan_guid: Scan GUID
+            
+        Returns:
+            Competitors verisi
+        """
+        if not scan_guid:
+            return None
+        
+        competitors_url = f"/scans/get-competitors-list?scan_guid={scan_guid}"
+        return self.call_endpoint(base_url, competitors_url)
+    
     def get_all_api_data(self, base_url: str, js_data: Dict[str, Any]) -> Dict[str, Any]:
         """
         Tüm API verilerini çeker.
@@ -193,8 +260,8 @@ class APIClient:
                 if competitors_data:
                     api_data["competitors_api"] = competitors_data
             
-            # Analytics API calls
-            if "pinz" in js_data:
+            # Analytics API calls (pinz tabanlı)
+            if "pinz" in js_data and js_data["pinz"]:
                 analytics_data = self.get_analytics_data(base_url, js_data["pinz"])
                 api_data["analytics_data"] = analytics_data
                 
