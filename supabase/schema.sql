@@ -35,24 +35,6 @@ LANGUAGE sql STABLE AS $$
   select auth.uid() is not null;
 $$;
 
-CREATE OR REPLACE FUNCTION public.is_org_member(target_org_id uuid)
-RETURNS boolean
-LANGUAGE sql STABLE AS $$
-  select exists (
-    select 1 from public.organization_members m
-    where m.org_id = target_org_id and m.user_id = auth.uid()
-  );
-$$;
-
-CREATE OR REPLACE FUNCTION public.is_org_admin(target_org_id uuid)
-RETURNS boolean
-LANGUAGE sql STABLE AS $$
-  select exists (
-    select 1 from public.organization_members m
-    where m.org_id = target_org_id and m.user_id = auth.uid() and m.role in ('owner','admin')
-  );
-$$;
-
 -- updated_at trigger helper
 CREATE OR REPLACE FUNCTION public.set_updated_at()
 RETURNS trigger
@@ -97,6 +79,25 @@ CREATE TABLE IF NOT EXISTS public.organization_members (
   created_at timestamptz NOT NULL DEFAULT now(),
   PRIMARY KEY (org_id, user_id)
 );
+
+-- helper functions that depend on organization_members
+CREATE OR REPLACE FUNCTION public.is_org_member(target_org_id uuid)
+RETURNS boolean
+LANGUAGE sql STABLE AS $$
+  select exists (
+    select 1 from public.organization_members m
+    where m.org_id = target_org_id and m.user_id = auth.uid()
+  );
+$$;
+
+CREATE OR REPLACE FUNCTION public.is_org_admin(target_org_id uuid)
+RETURNS boolean
+LANGUAGE sql STABLE AS $$
+  select exists (
+    select 1 from public.organization_members m
+    where m.org_id = target_org_id and m.user_id = auth.uid() and m.role in ('owner','admin')
+  );
+$$;
 
 -- projects
 CREATE TABLE IF NOT EXISTS public.projects (
