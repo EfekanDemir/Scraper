@@ -34,6 +34,59 @@ class HTMLParser:
         except Exception:
             return default
     
+    def _extract_rating_and_reviews(self, container) -> Dict[str, str]:
+        """Yıldız puanı ve yorum sayısını çıkarır.
+        
+        Bu fonksiyon, aynı satır/panel içerisinde bulunan
+        `div.rating-container` ve onu takip eden `span` içinden
+        puan (yıldız) ve yorum sayısını ayrıştırır.
+        """
+        rating_value: Optional[str] = None
+        reviews_count: Optional[str] = None
+
+        try:
+            # 1) Puan: rating-stars title="4.9 out of 5" üzerinden
+            rating_stars = container.select_one("div.rating-container div.rating-stars")
+            if rating_stars:
+                title_text = rating_stars.get("title", "")
+                m = re.search(r"([0-9]+(?:[\.,][0-9]+)?)\s*out\s*of\s*5", title_text, re.I)
+                if m:
+                    rating_value = m.group(1).replace(",", ".")
+            # 2) Alternatif: style width: 98% -> 4.9
+            if rating_value is None and rating_stars and rating_stars.has_attr("style"):
+                m2 = re.search(r"width:\s*([0-9]+)%", rating_stars["style"])  # type: ignore[index]
+                if m2:
+                    pct = int(m2.group(1))
+                    rating_value = f"{round(pct * 5 / 100, 1)}"
+
+            # 3) Yorum sayısı: rating-container + span -> "(35)" veya "(35 Reviews)"
+            reviews_span = container.select_one("div.rating-container + span")
+            if reviews_span:
+                text = self._get_text(reviews_span, default="")
+                m3 = re.search(r"\(?\s*([0-9]+)\s*(?:Reviews?|Yorum(?:lar)?|Değerlendirme)?\s*\)?", text, re.I)
+                if m3:
+                    reviews_count = m3.group(1)
+        except Exception:
+            pass
+
+        # Normalleştir
+        if rating_value is None:
+            rating_value = "N/A"
+        if reviews_count is None:
+            reviews_count = "0"
+
+        combined = rating_value if rating_value != "N/A" else ""
+        if reviews_count and reviews_count != "0":
+            combined = f"{combined} ({reviews_count})".strip()
+        if not combined:
+            combined = "N/A"
+
+        return {
+            "Puan": rating_value,
+            "Yorum Sayısı": reviews_count,
+            "Puan/Yorum": combined,
+        }
+    
     def parse_scan_information(self, soup: BeautifulSoup) -> Dict[str, Any]:
         """
         Scan Information tablosunu parse eder.
@@ -53,7 +106,12 @@ class HTMLParser:
                 if scan_table:
                     results["İşletme Adı"] = self._get_text(scan_table.select_one("span.bizname"))
                     results["Adres"] = self._get_text(scan_table.select_one("span.center-block"))
-                    results["Yorum Sayısı"] = self._get_text(scan_table.select_one("div.rating-container + span"))
+                    # Yorum sayısı ve puanı birlikte al
+                    rating_info = self._extract_rating_and_reviews(scan_table)
+                    results.update({
+                        "Puan": rating_info.get("Puan", "N/A"),
+                        "Yorum Sayısı": rating_info.get("Yorum Sayısı", "0"),
+                    })
                     
                     # Anahtar Kelime ve Dil
                     kw_td = scan_table.find("td", string=re.compile(r"Keyword", re.I))
@@ -145,9 +203,12 @@ class HTMLParser:
             rows = soup.select("table#tbl_comp_rank tbody tr")
             
             for row in rows:
+                rating_info = self._extract_rating_and_reviews(row)
                 comp = {
                     "İsim": self._get_text(row.select_one("a.ext")),
-                    "Puan/Yorum": self._get_text(row.select_one("div.rating-container + span")),
+                    "Puan": rating_info.get("Puan", "N/A"),
+                    "Yorum Sayısı": rating_info.get("Yorum Sayısı", "0"),
+                    "Puan/Yorum": rating_info.get("Puan/Yorum", "N/A"),
                 }
                 
                 # Adres
@@ -214,12 +275,14 @@ class HTMLParser:
             for row in rows:
                 tds = row.find_all("td")
                 isim = self._get_text(row.select_one("a.ext"))
-                rating = self._get_text(row.select_one("div.rating-container + span"))
+                rating_info = self._extract_rating_and_reviews(row)
                 gorulme_sayisi = self._get_text(tds[-1] if tds else None)
                 
                 listings.append({
                     "İsim": isim,
-                    "Puan/Yorum": rating,
+                    "Puan": rating_info.get("Puan", "N/A"),
+                    "Yorum Sayısı": rating_info.get("Yorum Sayısı", "0"),
+                    "Puan/Yorum": rating_info.get("Puan/Yorum", "N/A"),
                     "Görülme Sayısı": gorulme_sayisi,
                 })
                 
@@ -249,16 +312,20 @@ class HTMLParser:
             for panel in panels:
                 rank = self._get_text(panel.select_one("span.dot"))
                 name = self._get_text(panel.select_one("h5"))
-                rating_span = panel.select_one("div.rating-container + span")
-                rating = self._get_text(rating_span)
+                rating_info = self._extract_rating_and_reviews(panel)
                 
-                address_div = rating_span.find_next("div") if rating_span else None
+                address_div = None
+                rating_span = panel.select_one("div.rating-container + span")
+                if rating_span:
+                    address_div = rating_span.find_next("div")
                 address = self._get_text(address_div)
                 
                 detaylar.append({
                     "Sıra": rank,
                     "İsim": name,
-                    "Puan/Yorum": rating,
+                    "Puan": rating_info.get("Puan", "N/A"),
+                    "Yorum Sayısı": rating_info.get("Yorum Sayısı", "0"),
+                    "Puan/Yorum": rating_info.get("Puan/Yorum", "N/A"),
                     "Adres": address,
                 })
                 
