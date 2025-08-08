@@ -704,11 +704,209 @@ END $$;
 -- 9) Useful grants (Supabase uses postgres role auth users; no extra grants needed for RLS)
 -- Intentionally left minimal; adjust if you have custom roles
 
-COMMIT;
-
 -- Optional seeds (commented out). Uncomment to create a sample org and project for the current user.
 -- BEGIN;
 -- INSERT INTO public.organizations (name, slug, owner_id) VALUES ('Demo Org', 'demo-org', auth.uid());
 -- INSERT INTO public.projects (org_id, name, description, created_by)
 -- SELECT o.id, 'Welcome Project', 'First project', auth.uid() FROM public.organizations o WHERE o.slug = 'demo-org';
 -- COMMIT;
+
+-- =====================================================
+-- SCRAPER TABLES - Web scraping data storage
+-- =====================================================
+
+-- Base table for summary information
+CREATE TABLE IF NOT EXISTS public.ozet_bilgiler (
+  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  scraped_at timestamptz NOT NULL DEFAULT now(),
+  url text,
+  payload jsonb NOT NULL DEFAULT '{}'::jsonb,
+  -- Specific fields for summary data
+  business_name text,
+  address text,
+  phone text,
+  rating numeric,
+  review_count integer,
+  category text,
+  created_at timestamptz NOT NULL DEFAULT now()
+);
+
+-- Competitors data
+CREATE TABLE IF NOT EXISTS public.rakipler (
+  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  scraped_at timestamptz NOT NULL DEFAULT now(),
+  url text,
+  payload jsonb NOT NULL DEFAULT '{}'::jsonb,
+  -- Specific fields for competitor data
+  competitor_name text,
+  competitor_rating numeric,
+  competitor_review_count integer,
+  competitor_category text,
+  created_at timestamptz NOT NULL DEFAULT now()
+);
+
+-- Sponsored listings
+CREATE TABLE IF NOT EXISTS public.sponsorlu_listeler (
+  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  scraped_at timestamptz NOT NULL DEFAULT now(),
+  url text,
+  payload jsonb NOT NULL DEFAULT '{}'::jsonb,
+  -- Specific fields for sponsored listings
+  listing_title text,
+  listing_url text,
+  listing_type text,
+  created_at timestamptz NOT NULL DEFAULT now()
+);
+
+-- Detailed results
+CREATE TABLE IF NOT EXISTS public.detayli_sonuclar (
+  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  scraped_at timestamptz NOT NULL DEFAULT now(),
+  url text,
+  payload jsonb NOT NULL DEFAULT '{}'::jsonb,
+  -- Specific fields for detailed results
+  result_title text,
+  result_description text,
+  result_url text,
+  result_rating numeric,
+  result_price_range text,
+  created_at timestamptz NOT NULL DEFAULT now()
+);
+
+-- Map/location data
+CREATE TABLE IF NOT EXISTS public.harita_verileri (
+  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  scraped_at timestamptz NOT NULL DEFAULT now(),
+  url text,
+  payload jsonb NOT NULL DEFAULT '{}'::jsonb,
+  -- Specific fields for map data
+  location_name text,
+  latitude numeric,
+  longitude numeric,
+  address text,
+  place_id text,
+  created_at timestamptz NOT NULL DEFAULT now()
+);
+
+-- JavaScript extracted data
+CREATE TABLE IF NOT EXISTS public.javascript_verileri (
+  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  scraped_at timestamptz NOT NULL DEFAULT now(),
+  url text,
+  payload jsonb NOT NULL DEFAULT '{}'::jsonb,
+  -- Specific fields for JS data
+  script_type text,
+  data_source text,
+  extracted_content text,
+  created_at timestamptz NOT NULL DEFAULT now()
+);
+
+-- API response data
+CREATE TABLE IF NOT EXISTS public.api_verileri (
+  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  scraped_at timestamptz NOT NULL DEFAULT now(),
+  url text,
+  payload jsonb NOT NULL DEFAULT '{}'::jsonb,
+  -- Specific fields for API data
+  api_endpoint text,
+  response_status integer,
+  response_data jsonb,
+  created_at timestamptz NOT NULL DEFAULT now()
+);
+
+-- =====================================================
+-- SCRAPER TABLE POLICIES - Allow public access for scraped data
+-- =====================================================
+
+-- Enable RLS for all scraper tables
+ALTER TABLE public.ozet_bilgiler ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.rakipler ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.sponsorlu_listeler ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.detayli_sonuclar ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.harita_verileri ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.javascript_verileri ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.api_verileri ENABLE ROW LEVEL SECURITY;
+
+-- Create permissive policies for scraper tables (allow all operations for authenticated users)
+-- Note: Adjust these policies based on your security requirements
+
+-- Ozet bilgiler policies
+DO $$ BEGIN
+  IF NOT EXISTS (
+    SELECT 1 FROM pg_policies WHERE policyname='Allow all operations on ozet_bilgiler'
+  ) THEN
+    CREATE POLICY "Allow all operations on ozet_bilgiler" ON public.ozet_bilgiler
+      FOR ALL USING (true) WITH CHECK (true);
+  END IF;
+END $$;
+
+-- Rakipler policies
+DO $$ BEGIN
+  IF NOT EXISTS (
+    SELECT 1 FROM pg_policies WHERE policyname='Allow all operations on rakipler'
+  ) THEN
+    CREATE POLICY "Allow all operations on rakipler" ON public.rakipler
+      FOR ALL USING (true) WITH CHECK (true);
+  END IF;
+END $$;
+
+-- Sponsorlu listeler policies
+DO $$ BEGIN
+  IF NOT EXISTS (
+    SELECT 1 FROM pg_policies WHERE policyname='Allow all operations on sponsorlu_listeler'
+  ) THEN
+    CREATE POLICY "Allow all operations on sponsorlu_listeler" ON public.sponsorlu_listeler
+      FOR ALL USING (true) WITH CHECK (true);
+  END IF;
+END $$;
+
+-- Detayli sonuclar policies
+DO $$ BEGIN
+  IF NOT EXISTS (
+    SELECT 1 FROM pg_policies WHERE policyname='Allow all operations on detayli_sonuclar'
+  ) THEN
+    CREATE POLICY "Allow all operations on detayli_sonuclar" ON public.detayli_sonuclar
+      FOR ALL USING (true) WITH CHECK (true);
+  END IF;
+END $$;
+
+-- Harita verileri policies
+DO $$ BEGIN
+  IF NOT EXISTS (
+    SELECT 1 FROM pg_policies WHERE policyname='Allow all operations on harita_verileri'
+  ) THEN
+    CREATE POLICY "Allow all operations on harita_verileri" ON public.harita_verileri
+      FOR ALL USING (true) WITH CHECK (true);
+  END IF;
+END $$;
+
+-- JavaScript verileri policies
+DO $$ BEGIN
+  IF NOT EXISTS (
+    SELECT 1 FROM pg_policies WHERE policyname='Allow all operations on javascript_verileri'
+  ) THEN
+    CREATE POLICY "Allow all operations on javascript_verileri" ON public.javascript_verileri
+      FOR ALL USING (true) WITH CHECK (true);
+  END IF;
+END $$;
+
+-- API verileri policies
+DO $$ BEGIN
+  IF NOT EXISTS (
+    SELECT 1 FROM pg_policies WHERE policyname='Allow all operations on api_verileri'
+  ) THEN
+    CREATE POLICY "Allow all operations on api_verileri" ON public.api_verileri
+      FOR ALL USING (true) WITH CHECK (true);
+  END IF;
+END $$;
+
+-- Create indexes for better performance
+CREATE INDEX IF NOT EXISTS ozet_bilgiler_scraped_at_idx ON public.ozet_bilgiler (scraped_at DESC);
+CREATE INDEX IF NOT EXISTS rakipler_scraped_at_idx ON public.rakipler (scraped_at DESC);
+CREATE INDEX IF NOT EXISTS sponsorlu_listeler_scraped_at_idx ON public.sponsorlu_listeler (scraped_at DESC);
+CREATE INDEX IF NOT EXISTS detayli_sonuclar_scraped_at_idx ON public.detayli_sonuclar (scraped_at DESC);
+CREATE INDEX IF NOT EXISTS harita_verileri_scraped_at_idx ON public.harita_verileri (scraped_at DESC);
+CREATE INDEX IF NOT EXISTS javascript_verileri_scraped_at_idx ON public.javascript_verileri (scraped_at DESC);
+CREATE INDEX IF NOT EXISTS api_verileri_scraped_at_idx ON public.api_verileri (scraped_at DESC);
+
+COMMIT;
