@@ -331,3 +331,4 @@ Modüler yapı sayesinde:
 
 Bu yapı, büyük ölçekli scraping projeleri için ideal bir temel oluşturur.
 
+

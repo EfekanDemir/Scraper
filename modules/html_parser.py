@@ -267,3 +267,4 @@ class HTMLParser:
         
         return detaylar
 
+

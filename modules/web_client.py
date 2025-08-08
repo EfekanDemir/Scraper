@@ -134,3 +134,4 @@ class WebClient:
             self.driver.quit()
             print("Selenium driver kapatıldı")
 
+
