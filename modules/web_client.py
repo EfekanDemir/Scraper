@@ -133,3 +133,4 @@ class WebClient:
         if self.driver:
             self.driver.quit()
             print("Selenium driver kapatıldı")
+

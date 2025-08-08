@@ -202,3 +202,4 @@ class APIClient:
             print(f"API veri çekme hatası: {e}")
         
         return api_data
+

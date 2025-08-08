@@ -173,3 +173,4 @@ class JSExtractor:
             print(f"Harita veri çıkarma hatası: {e}")
         
         return pins
+

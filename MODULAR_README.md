@@ -330,3 +330,4 @@ Modüler yapı sayesinde:
 - ✅ Genişletilebilirlik sağlanır
 
 Bu yapı, büyük ölçekli scraping projeleri için ideal bir temel oluşturur.
+

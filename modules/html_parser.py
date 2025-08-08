@@ -266,3 +266,4 @@ class HTMLParser:
             print(f"Detaylı sonuçlar parse hatası: {e}")
         
         return detaylar
+

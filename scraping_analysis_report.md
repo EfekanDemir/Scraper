@@ -194,3 +194,4 @@ Site analizi sonucunda **hibrit yaklaşım** en etkili scraping metodu olarak be
 - ✅ Gelecekteki değişikliklere uyum sağlar
 
 **Gelişmiş scraper** bu analiz doğrultusunda oluşturulmuş ve test edilmiştir.
+
