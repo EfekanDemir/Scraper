@@ -185,7 +185,13 @@ class HTMLParser:
                             value = self._get_text(value_cell)
                             
                             if key:
-                                if "Ranked Locations" in key:
+                                # Anahtar metni normalize et ve regex ile eşleştir (alt string çakışmalarını önlemek için)
+                                key_norm = re.sub(r"\s+", " ", key).strip()
+                                
+                                # Önce 'Un Ranked Locations' kontrol et ("Ranked Locations" ile çakışmayı önlemek için)
+                                if re.search(r"^Un\s*Ranked\s+Locations$", key_norm, re.I):
+                                    results["Un Ranked Locations"] = value
+                                elif re.search(r"^Ranked\s+Locations$", key_norm, re.I):
                                     spans = value_cell.find_all("span")
                                     if len(spans) >= 2:
                                         ranked = self._get_text(spans[0])
@@ -193,19 +199,17 @@ class HTMLParser:
                                         results["Ranked Locations"] = f"{ranked}/{total}"
                                     else:
                                         results["Ranked Locations"] = value
-                                elif "Un Ranked Locations" in key:
-                                    results["Un Ranked Locations"] = value
-                                elif "Average rank" in key:
+                                elif re.search(r"^Average\s+rank$", key_norm, re.I):
                                     span = key_cell.find("span")
                                     if span and span.get("title"):
                                         results["Average rank (Ranked Locations)"] = value
                                     else:
                                         results["Average rank"] = value
-                                elif "Avg total rank" in key:
+                                elif re.search(r"^Avg\s+total\s+rank$", key_norm, re.I):
                                     results["Avg total rank (All Locations)"] = value
-                                elif "Best rank" in key:
+                                elif re.search(r"^Best\s+rank$", key_norm, re.I):
                                     results["Best rank"] = value
-                                elif "Max Distance" in key:
+                                elif re.search(r"^Max\s+Distance$", key_norm, re.I):
                                     results["Max Distance"] = value
                                 else:
                                     results[key] = value
