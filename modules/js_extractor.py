@@ -21,23 +21,28 @@ class JSExtractor:
     
     def _safe_json_loads(self, text: str) -> List[Any]:
         """
-        JSON'ı güvenli bir şekilde parse eder.
-        
-        Args:
-            text: Parse edilecek JSON string
-            
-        Returns:
-            Parse edilmiş veri
+        JSON'a benzer JS dizilerini toleranslı şekilde parse eder.
         """
+        if not isinstance(text, str):
+            return []
         try:
             return json.loads(text)
-        except json.JSONDecodeError:
+        except Exception:
             try:
-                # JavaScript boolean / null değerlerini Python eşdeğerleriyle değiştir
-                text = re.sub(r"\btrue\b", "True", text, flags=re.I)
-                text = re.sub(r"\bfalse\b", "False", text, flags=re.I)
-                text = re.sub(r"\bnull\b", "None", text, flags=re.I)
-                return ast.literal_eval(text)
+                # JS yorumlarını temizle
+                # // satır sonu
+                text2 = re.sub(r"//.*?$", "", text, flags=re.M)
+                # /* block */
+                text2 = re.sub(r"/\*[^*]*\*+(?:[^/*][^*]*\*+)*/", "", text2, flags=re.S)
+                # getcolor(...) çağrılarını nötralize et
+                text2 = re.sub(r":\s*getcolor\(\s*\d+\s*\)", r': "auto"', text2)
+                # Trailing virgülleri kaldır
+                text2 = re.sub(r",\s*([}\]])", r"\1", text2)
+                # JS boolean/null -> Python
+                text2 = re.sub(r"\btrue\b", "True", text2, flags=re.I)
+                text2 = re.sub(r"\bfalse\b", "False", text2, flags=re.I)
+                text2 = re.sub(r"\bnull\b", "None", text2, flags=re.I)
+                return ast.literal_eval(text2)
             except Exception:
                 return []
     
@@ -106,6 +111,26 @@ class JSExtractor:
                             break
                     except Exception:
                         pass
+                # atob parse: pinz = JSON.parse(atob('...'))
+                match3 = re.search(r"pinz\s*=\s*JSON\.parse\(\s*atob\(\s*(['\"])(.*?)\1\s*\)\s*\)\s*;", script_text)
+                if not pinz_data and match3:
+                    try:
+                        import base64
+                        b64 = match3.group(2)
+                        decoded = base64.b64decode(b64).decode("utf-8", errors="ignore")
+                        arr = json.loads(decoded)
+                        if arr:
+                            pinz_data = arr
+                            break
+                    except Exception:
+                        pass
+                # window.pinz = [...] veya window["pinz"]=...
+                match4 = re.search(r"window\s*\[?['\"]pinz['\"]\]?\s*=\s*(\[[\s\S]*?\]);", script_text)
+                if not pinz_data and match4:
+                    arr = self._safe_json_loads(match4.group(1))
+                    if arr:
+                        pinz_data = arr
+                        break
             # 2) Tüm sayfa metninde ara
             if not pinz_data:
                 page_txt = self._page_text(soup)
@@ -134,6 +159,33 @@ class JSExtractor:
                             continue
                     if collected:
                         pinz_data = collected
+                # 4) Bracket-balance fallback: 'var pinz = [' ile başlayan bloğu dengeleme ile al
+                if not pinz_data:
+                    idx = page_txt.find("var pinz")
+                    if idx == -1:
+                        idx = page_txt.find("let pinz")
+                    if idx == -1:
+                        idx = page_txt.find("const pinz")
+                    if idx != -1:
+                        # İlk '[' konumunu bul
+                        start_brack = page_txt.find('[', idx)
+                        if start_brack != -1:
+                            depth = 0
+                            end_pos = -1
+                            for j in range(start_brack, min(len(page_txt), start_brack + 500000)):
+                                ch = page_txt[j]
+                                if ch == '[':
+                                    depth += 1
+                                elif ch == ']':
+                                    depth -= 1
+                                    if depth == 0:
+                                        end_pos = j
+                                        break
+                            if end_pos != -1:
+                                raw_block = page_txt[start_brack:end_pos+1]
+                                arr = self._safe_json_loads(raw_block)
+                                if arr:
+                                    pinz_data = arr
         
         except Exception as e:
             print(f"pinz veri çıkarma hatası: {e}")
@@ -194,13 +246,16 @@ class JSExtractor:
         place_id = ""
         
         try:
-            # Scriptlerde atama
+            # Scriptlerde atama (yalnızca makul değerleri kabul et)
             for script in soup.find_all("script"):
                 script_text = (script.string or "") or script.get_text() or ""
                 place_match = re.search(r"place_id['\"]?\s*[:=]\s*['\"]([^'\"]+)['\"]", script_text)
                 if place_match:
-                    place_id = place_match.group(1)
-                    break
+                    candidate = place_match.group(1).strip()
+                    # Basit doğrulama: çok uzun değil, boşluk veya kod parçaları içermiyor
+                    if 5 <= len(candidate) <= 200 and not re.search(r"[\r\n;{}]", candidate):
+                        place_id = candidate
+                        break
             # Analytics URL'lerinden pid parametresi (fallback)
             if not place_id:
                 page_txt = self._page_text(soup)
@@ -267,6 +322,9 @@ class JSExtractor:
                     if isinstance(obj, dict):
                         maps_url = obj.get("url")
                         cid_value = self._extract_cid_from_url(maps_url)
+                        # search_guid ve pid'i URL'den çek
+                        m_guid = re.search(r"search_guid=([0-9a-fA-F-]{36})", maps_url or "")
+                        m_pid = re.search(r"(?:\?|&|&amp;)pid=([^&'\"\s]+)", maps_url or "")
                         pins.append({
                             "lat": obj.get("location", {}).get("lat") or obj.get("lat"),
                             "lon": obj.get("location", {}).get("lon") or obj.get("lng") or obj.get("longitude"),
@@ -275,11 +333,15 @@ class JSExtractor:
                             "url": maps_url,
                             "color": obj.get("color"),
                             "cid": cid_value,
+                            "search_guid": m_guid.group(1) if m_guid else None,
+                            "pid": m_pid.group(1) if m_pid else None,
                         })
                         
         except Exception as e:
             print(f"Harita veri çıkarma hatası: {e}")
         
         return pins
+    
+    
 
 

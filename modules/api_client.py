@@ -134,32 +134,73 @@ class APIClient:
         return data
     
     def _extract_lat_lon_from_soup(self, soup: BeautifulSoup) -> Tuple[Optional[float], Optional[float]]:
-        """Analytics HTML'indeki başlıktan enlem/boylam çıkarır."""
+        """Analytics HTML'indeki metin ve scriptlerden enlem/boylam çıkarır."""
         try:
-            header = soup.find(["h4", "h3"], string=re.compile(r"Results for", re.I))
-            full_text = header.get_text(" ", strip=True) if header else soup.get_text(" ", strip=True)
+            # Önce tüm metin (script dahil) üzerinden dene
+            full_text = soup.get_text(" ", strip=True)
+            html_raw = str(soup)
+
+            # 1) "... at <lat>, <lon>" kalıbı
             m = re.search(r"\bat\s+(-?\d{1,3}\.\d+)\s*,\s*(-?\d{1,3}\.\d+)", full_text)
             if m:
-                lat = float(m.group(1))
-                lon = float(m.group(2))
-                return lat, lon
+                return float(m.group(1)), float(m.group(2))
+
+            # 2) LatLng(<lat>, <lon>)
+            m = re.search(r"LatLng\s*\(\s*(-?\d{1,3}\.\d+)\s*,\s*(-?\d{1,3}\.\d+)\s*\)", html_raw)
+            if m:
+                return float(m.group(1)), float(m.group(2))
+
+            # 3) center: { lat: <lat>, lng: <lon> }
+            m = re.search(r"center\s*:\s*\{\s*lat\s*:\s*(-?\d{1,3}\.\d+)\s*,\s*lng\s*:\s*(-?\d{1,3}\.\d+)", html_raw)
+            if m:
+                return float(m.group(1)), float(m.group(2))
+
+            # 4) data-lat / data-lng attribute'ları
+            m = re.search(r"data-lat=[\"'](-?\d{1,3}\.\d+)[\"'][^>]*data-lng=[\"'](-?\d{1,3}\.\d+)[\"']", html_raw)
+            if m:
+                return float(m.group(1)), float(m.group(2))
+            m = re.search(r"data-lng=[\"'](-?\d{1,3}\.\d+)[\"'][^>]*data-lat=[\"'](-?\d{1,3}\.\d+)[\"']", html_raw)
+            if m:
+                return float(m.group(2)), float(m.group(1))
+
+            # 5) var lat = ...; var lng = ... (yakın yakın)
+            m = re.search(
+                r"var\s+(?:lat|latitude)\s*=\s*(-?\d{1,3}\.\d+)[\s\S]{0,200}?var\s+(?:lng|lon|longitude)\s*=\s*(-?\d{1,3}\.\d+)",
+                html_raw,
+                re.I,
+            )
+            if m:
+                return float(m.group(1)), float(m.group(2))
         except Exception:
             pass
         return None, None
     
-    def extract_analytics_urls_from_soup(self, soup: BeautifulSoup) -> List[str]:
-        """Sayfa HTML içinden tüm analytics endpoint URL'lerini çıkarır."""
+    def extract_analytics_urls_from_soup(self, soup: BeautifulSoup, default_pid: Optional[str] = None) -> List[str]:
+        """Sayfa HTML içinden geçerli analytics endpoint URL'lerini çıkarır.
+        Yalnızca hem search_guid (UUID) hem de pid içerenleri döndürür. Eğer pid eksikse ve default_pid verilmişse, pid eklenir.
+        """
         try:
             page_txt = str(soup)
-            urls = re.findall(r"(/analytics/GetResults\?[^\s'\"]+)", page_txt)
-            # Tekilleştir ve sıralı koru
+            # Tüm GetResults URL adaylarını topla
+            candidates = re.findall(r"(/analytics/GetResults\?[^\s'\"]+)", page_txt)
             seen = set()
-            unique_urls: List[str] = []
-            for u in urls:
-                if u not in seen:
+            valid: List[str] = []
+            for u in candidates:
+                if u in seen:
+                    continue
+                # Geçerlilik: search_guid (UUID) ve pid parametreleri bulunmalı
+                has_guid = re.search(r"(?:\?|&|&amp;)search_guid=[0-9a-fA-F-]{36}\b", u) is not None
+                has_pid = re.search(r"(?:\?|&|&amp;)pid=", u) is not None
+                if has_guid and has_pid:
                     seen.add(u)
-                    unique_urls.append(u)
-            return unique_urls
+                    valid.append(u)
+                elif has_guid and not has_pid and default_pid:
+                    # pid eksikse ekle
+                    sep = "&" if ("?" in u) else "?"
+                    completed = f"{u}{sep}pid={default_pid}"
+                    seen.add(completed)
+                    valid.append(completed)
+            return valid
         except Exception:
             return []
     
@@ -193,11 +234,11 @@ class APIClient:
         
         return analytics_data
     
-    def get_map_points_from_page(self, base_url: str, soup: BeautifulSoup, limit: int = 60) -> List[Dict[str, Any]]:
+    def get_map_points_from_page(self, base_url: str, soup: BeautifulSoup, limit: int = 60, default_pid: Optional[str] = None) -> List[Dict[str, Any]]:
         """Sayfadan analytics linklerini tarayıp her biri için lat/lon bilgisiyle harita noktaları üretir."""
         points: List[Dict[str, Any]] = []
         try:
-            urls = self.extract_analytics_urls_from_soup(soup)
+            urls = self.extract_analytics_urls_from_soup(soup, default_pid=default_pid)
             for endpoint in urls[:limit]:
                 try:
                     full_url = urljoin(base_url, endpoint)
@@ -208,7 +249,7 @@ class APIClient:
                     lat, lon = self._extract_lat_lon_from_soup(soup_resp)
                     # search_guid ve pid'i endpoint üzerinden çıkar
                     m_guid = re.search(r"search_guid=([0-9a-fA-F-]{36})", endpoint)
-                    m_pid = re.search(r"[?&]pid=([^&]+)", endpoint)
+                    m_pid = re.search(r"(?:\?|&|&amp;)pid=([^&'\"\s]+)", endpoint)
                     points.append({
                         "lat": lat,
                         "lon": lon,
@@ -262,12 +303,14 @@ class APIClient:
             
             # Analytics API calls (pinz tabanlı)
             if "pinz" in js_data and js_data["pinz"]:
-                analytics_data = self.get_analytics_data(base_url, js_data["pinz"])
+                analytics_data = self.get_analytics_data(base_url, js_data["pinz"]) 
                 api_data["analytics_data"] = analytics_data
                 
         except Exception as e:
             print(f"API veri çekme hatası: {e}")
         
         return api_data
+    
+    
 
 
