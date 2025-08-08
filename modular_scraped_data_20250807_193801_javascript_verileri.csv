@@ -1,6 +1,0 @@
-﻿pinz,scan_guid,place_id
-[],,"+bz.place_id,
-                opacity:1
-
-            });
-            google.maps.event.addListener(marker, "
