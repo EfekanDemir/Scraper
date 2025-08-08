@@ -1,0 +1,6 @@
+﻿pinz,scan_guid,place_id
+[],538fe5da-85cb-4173-9d29-34e866ca46d5,"+bz.place_id,
+                opacity:1
+
+            });
+            google.maps.event.addListener(marker, "
