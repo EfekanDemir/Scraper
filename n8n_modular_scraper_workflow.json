@@ -116,7 +116,7 @@
     },
     {
       "parameters": {
-        "functionCode": "// js_extractor.py modülü fonksiyonalitesi\n// JavaScript verilerini çıkarır\n\nconst htmlContent = items[0].json.data;\n\n// Extract pinz data\nfunction extractPinzData(html) {\n  const pinzRegex = /var\\s+pinz\\s*=\\s*(\\[.*?\\]);/s;\n  const match = html.match(pinzRegex);\n  if (match) {\n    try {\n      // JavaScript boolean/null values'ı Python eşdeğerleriyle değiştir\n      let jsonStr = match[1]\n        .replace(/\\btrue\\b/gi, 'true')\n        .replace(/\\bfalse\\b/gi, 'false')\n        .replace(/\\bnull\\b/gi, 'null');\n      return JSON.parse(jsonStr);\n    } catch (e) {\n      return [];\n    }\n  }\n  return [];\n}\n\n// Extract scan_guid\nfunction extractScanGuid(html) {\n  const scanMatch = html.match(/scan_guid['\"]?\\s*[:=]\\s*['\"]([^'\"]+)['\"]/i);\n  return scanMatch ? scanMatch[1] : '';\n}\n\n// Extract place_id\nfunction extractPlaceId(html) {\n  const placeMatch = html.match(/place_id['\"]?\\s*[:=]\\s*['\"]([^'\"]+)['\"]/i);\n  return placeMatch ? placeMatch[1] : '';\n}\n\n// Extract all JavaScript data\nconst pinzData = extractPinzData(htmlContent);\nconst scanGuid = extractScanGuid(htmlContent);\nconst placeId = extractPlaceId(htmlContent);\n\nreturn {\n  json: {\n    html_content: htmlContent,\n    javascript_data: {\n      pinz_array: pinzData,\n      scan_guid: scanGuid,\n      place_id: placeId,\n      pinz_count: pinzData.length\n    }\n  }\n};"
+        "functionCode": "// js_extractor.py modülü fonksiyonalitesi\n// JavaScript verilerini çıkarır\n\nconst htmlContent = items[0].json.data || items[0].json.html_content || items[0].json.body;\n\n// Extract pinz data\nfunction extractPinzData(html) {\n  const pinzRegex = /var\\s+pinz\\s*=\\s*(\\[.*?\\]);/s;\n  const match = html.match(pinzRegex);\n  if (match) {\n    try {\n      // JavaScript boolean/null values'ı Python eşdeğerleriyle değiştir\n      let jsonStr = match[1]\n        .replace(/\\btrue\\b/gi, 'true')\n        .replace(/\\bfalse\\b/gi, 'false')\n        .replace(/\\bnull\\b/gi, 'null');\n      return JSON.parse(jsonStr);\n    } catch (e) {\n      return [];\n    }\n  }\n  return [];\n}\n\n// Extract scan_guid\nfunction extractScanGuid(html) {\n  const scanMatch = html.match(/scan_guid['\"]?\\s*[:=]\\s*['\"]([^'\"]+)['\"]/i);\n  return scanMatch ? scanMatch[1] : '';\n}\n\n// Extract place_id\nfunction extractPlaceId(html) {\n  const placeMatch = html.match(/place_id['\"]?\\s*[:=]\\s*['\"]([^'\"]+)['\"]/i);\n  return placeMatch ? placeMatch[1] : '';\n}\n\n// Validate input data\nif (!htmlContent || typeof htmlContent !== 'string') {\n  return {\n    json: {\n      html_content: '',\n      javascript_data: {\n        pinz_array: [],\n        scan_guid: '',\n        place_id: '',\n        pinz_count: 0,\n        error: 'No valid HTML content found'\n      }\n    }\n  };\n}\n\n// Extract all JavaScript data\nconst pinzData = extractPinzData(htmlContent);\nconst scanGuid = extractScanGuid(htmlContent);\nconst placeId = extractPlaceId(htmlContent);\n\nreturn {\n  json: {\n    html_content: htmlContent,\n    javascript_data: {\n      pinz_array: pinzData,\n      scan_guid: scanGuid,\n      place_id: placeId,\n      pinz_count: pinzData.length\n    }\n  }\n};"
       },
       "id": "3c4d5e6f-7g8h-9i0j-1k2l-m3n4o5p6q7r8",
       "name": "Function - Extract JS Data",
@@ -136,7 +136,7 @@
           "rules": [
             {
               "extractor": "css",
-              "cssSelector": "table[summary*=\"Scan Information\"] tr",
+              "cssSelector": "table[summary*=\"Scan Information\"] tr, .scan-info tr, .business-info tr",
               "returnArray": true,
               "attribute": "text"
             }
@@ -161,7 +161,7 @@
           "rules": [
             {
               "extractor": "css",
-              "cssSelector": ".competitor-row",
+              "cssSelector": ".competitor-row, .competitor, .competitor-listing, [class*=\"competitor\"]",
               "returnArray": true,
               "attribute": "outerHTML"
             }
@@ -186,7 +186,7 @@
           "rules": [
             {
               "extractor": "css",
-              "cssSelector": ".sponsored-listing",
+              "cssSelector": ".sponsored-listing, .sponsored, .ad-listing, [class*=\"sponsored\"], [class*=\"ad\"]",
               "returnArray": true,
               "attribute": "outerHTML"
             }
