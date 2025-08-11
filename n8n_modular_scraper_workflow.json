@@ -1,0 +1,553 @@
+{
+  "name": "Modular Web Scraper - Local Rank Report",
+  "nodes": [
+    {
+      "parameters": {},
+      "id": "af6c2e3c-3b4c-4d5e-8f9a-1b2c3d4e5f6g",
+      "name": "Start",
+      "type": "n8n-nodes-base.start",
+      "typeVersion": 1,
+      "position": [
+        240,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "url": "={{ $json.url || 'https://www.local-rank.report/scan/97919fde-e478-4081-983f-7e0065b6b5bb' }}",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "User-Agent",
+              "value": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/115.0 Safari/537.36"
+            },
+            {
+              "name": "Accept",
+              "value": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8"
+            },
+            {
+              "name": "Accept-Language",
+              "value": "en-US,en;q=0.5"
+            }
+          ]
+        },
+        "options": {
+          "timeout": 30000,
+          "response": {
+            "response": {
+              "responseFormat": "string"
+            }
+          }
+        }
+      },
+      "id": "1a2b3c4d-5e6f-7g8h-9i0j-k1l2m3n4o5p6",
+      "name": "HTTP Request - Get HTML",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.1,
+      "position": [
+        460,
+        300
+      ],
+      "notes": "web_client.py modülü - HTML içeriğini alır"
+    },
+    {
+      "parameters": {
+        "mode": "combine",
+        "combinationMode": "multiplex",
+        "options": {}
+      },
+      "id": "2b3c4d5e-6f7g-8h9i-0j1k-l2m3n4o5p6q7",
+      "name": "Merge - HTML Content",
+      "type": "n8n-nodes-base.merge",
+      "typeVersion": 2.1,
+      "position": [
+        680,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "functionCode": "// js_extractor.py modülü fonksiyonalitesi\n// JavaScript verilerini çıkarır\n\nconst htmlContent = items[0].json.data;\n\n// Extract pinz data\nfunction extractPinzData(html) {\n  const pinzRegex = /var\\s+pinz\\s*=\\s*(\\[.*?\\]);/s;\n  const match = html.match(pinzRegex);\n  if (match) {\n    try {\n      // JavaScript boolean/null values'ı Python eşdeğerleriyle değiştir\n      let jsonStr = match[1]\n        .replace(/\\btrue\\b/gi, 'true')\n        .replace(/\\bfalse\\b/gi, 'false')\n        .replace(/\\bnull\\b/gi, 'null');\n      return JSON.parse(jsonStr);\n    } catch (e) {\n      return [];\n    }\n  }\n  return [];\n}\n\n// Extract scan_guid\nfunction extractScanGuid(html) {\n  const scanMatch = html.match(/scan_guid['\"]?\\s*[:=]\\s*['\"]([^'\"]+)['\"]/i);\n  return scanMatch ? scanMatch[1] : '';\n}\n\n// Extract place_id\nfunction extractPlaceId(html) {\n  const placeMatch = html.match(/place_id['\"]?\\s*[:=]\\s*['\"]([^'\"]+)['\"]/i);\n  return placeMatch ? placeMatch[1] : '';\n}\n\n// Extract all JavaScript data\nconst pinzData = extractPinzData(htmlContent);\nconst scanGuid = extractScanGuid(htmlContent);\nconst placeId = extractPlaceId(htmlContent);\n\nreturn {\n  json: {\n    html_content: htmlContent,\n    javascript_data: {\n      pinz_array: pinzData,\n      scan_guid: scanGuid,\n      place_id: placeId,\n      pinz_count: pinzData.length\n    }\n  }\n};"
+      },
+      "id": "3c4d5e6f-7g8h-9i0j-1k2l-m3n4o5p6q7r8",
+      "name": "Function - Extract JS Data",
+      "type": "n8n-nodes-base.function",
+      "typeVersion": 1,
+      "position": [
+        900,
+        300
+      ],
+      "notes": "js_extractor.py modülü - JavaScript verilerini çıkarır"
+    },
+    {
+      "parameters": {
+        "dataType": "string",
+        "value1": "={{ $json.html_content }}",
+        "rules": {
+          "rules": [
+            {
+              "extractor": "css",
+              "cssSelector": "table[summary*=\"Scan Information\"] tr",
+              "returnArray": true,
+              "attribute": "text"
+            }
+          ]
+        }
+      },
+      "id": "4d5e6f7g-8h9i-0j1k-2l3m-n4o5p6q7r8s9",
+      "name": "HTML Extract - Scan Information",
+      "type": "n8n-nodes-base.htmlExtract",
+      "typeVersion": 1,
+      "position": [
+        1120,
+        200
+      ],
+      "notes": "html_parser.py - Scan Information parsing"
+    },
+    {
+      "parameters": {
+        "dataType": "string",
+        "value1": "={{ $json.html_content }}",
+        "rules": {
+          "rules": [
+            {
+              "extractor": "css",
+              "cssSelector": ".competitor-row",
+              "returnArray": true,
+              "attribute": "outerHTML"
+            }
+          ]
+        }
+      },
+      "id": "5e6f7g8h-9i0j-1k2l-3m4n-o5p6q7r8s9t0",
+      "name": "HTML Extract - Competitors",
+      "type": "n8n-nodes-base.htmlExtract",
+      "typeVersion": 1,
+      "position": [
+        1120,
+        320
+      ],
+      "notes": "html_parser.py - Competitors parsing"
+    },
+    {
+      "parameters": {
+        "dataType": "string",
+        "value1": "={{ $json.html_content }}",
+        "rules": {
+          "rules": [
+            {
+              "extractor": "css",
+              "cssSelector": ".sponsored-listing",
+              "returnArray": true,
+              "attribute": "outerHTML"
+            }
+          ]
+        }
+      },
+      "id": "6f7g8h9i-0j1k-2l3m-4n5o-p6q7r8s9t0u1",
+      "name": "HTML Extract - Sponsored",
+      "type": "n8n-nodes-base.htmlExtract",
+      "typeVersion": 1,
+      "position": [
+        1120,
+        440
+      ],
+      "notes": "html_parser.py - Sponsorlu listeler parsing"
+    },
+    {
+      "parameters": {
+        "functionCode": "// html_parser.py modülü fonksiyonalitesi\n// HTML parsing ile özet bilgileri çıkarır\n\nconst htmlContent = items[0].json.html_content;\nconst scanInfo = items[1].json || {};\n\n// Parse scan information\nfunction parseScanInformation(html) {\n  const results = {};\n  \n  // Extract business name\n  const businessNameMatch = html.match(/<h1[^>]*>([^<]+)<\\/h1>/i);\n  if (businessNameMatch) {\n    results['İşletme Adı'] = businessNameMatch[1].trim();\n  }\n  \n  // Extract address\n  const addressMatch = html.match(/<span[^>]*address[^>]*>([^<]+)<\\/span>/i);\n  if (addressMatch) {\n    results['Adres'] = addressMatch[1].trim();\n  }\n  \n  // Extract rating\n  const ratingMatch = html.match(/title=\"([0-9]+(?:[\\.,][0-9]+)?)\\s*out\\s*of\\s*5\"/i);\n  if (ratingMatch) {\n    results['Puan'] = ratingMatch[1].replace(',', '.');\n  }\n  \n  // Extract review count\n  const reviewMatch = html.match(/\\(\\s*([0-9]+)\\s*(?:Reviews?|Yorum)?\\s*\\)/i);\n  if (reviewMatch) {\n    results['Yorum Sayısı'] = reviewMatch[1];\n  }\n  \n  return results;\n}\n\n// Parse rank summary\nfunction parseRankSummary(html) {\n  const results = {};\n  \n  // Extract ranked locations\n  const rankedMatch = html.match(/Ranked Locations[^>]*>([^<]+)</i);\n  if (rankedMatch) {\n    results['Ranked Locations'] = rankedMatch[1].trim();\n  }\n  \n  // Extract average rank\n  const avgRankMatch = html.match(/Average rank[^>]*>([^<]+)</i);\n  if (avgRankMatch) {\n    results['Average rank (Ranked Locations)'] = avgRankMatch[1].trim();\n  }\n  \n  // Extract best rank\n  const bestRankMatch = html.match(/Best rank[^>]*>([^<]+)</i);\n  if (bestRankMatch) {\n    results['Best rank'] = bestRankMatch[1].trim();\n  }\n  \n  return results;\n}\n\nconst scanInformation = parseScanInformation(htmlContent);\nconst rankSummary = parseRankSummary(htmlContent);\n\nreturn {\n  json: {\n    ozet_bilgiler: {\n      ...scanInformation,\n      ...rankSummary,\n      'Tarih': new Date().toISOString().slice(0, 19).replace('T', ' ')\n    }\n  }\n};"
+      },
+      "id": "7g8h9i0j-1k2l-3m4n-5o6p-q7r8s9t0u1v2",
+      "name": "Function - Parse Summary Info",
+      "type": "n8n-nodes-base.function",
+      "typeVersion": 1,
+      "position": [
+        1340,
+        200
+      ],
+      "notes": "html_parser.py - Özet bilgiler parsing"
+    },
+    {
+      "parameters": {
+        "functionCode": "// Competitors parsing (html_parser.py modülü)\nconst competitorsHtml = items[0].json.data || [];\n\nfunction parseCompetitors(competitorElements) {\n  const competitors = [];\n  \n  competitorElements.forEach(element => {\n    if (typeof element === 'string' && element.includes('competitor')) {\n      const competitor = {};\n      \n      // Extract name\n      const nameMatch = element.match(/<[^>]*class[^>]*name[^>]*>([^<]+)</i);\n      if (nameMatch) competitor['İsim'] = nameMatch[1].trim();\n      \n      // Extract rating\n      const ratingMatch = element.match(/title=\"([0-9]+(?:[\\.,][0-9]+)?)\\s*out\\s*of\\s*5\"/i);\n      if (ratingMatch) competitor['Puan'] = ratingMatch[1].replace(',', '.');\n      \n      // Extract review count\n      const reviewMatch = element.match(/\\(\\s*([0-9]+)\\s*(?:Reviews?)?\\s*\\)/i);\n      if (reviewMatch) competitor['Yorum Sayısı'] = reviewMatch[1];\n      \n      // Extract address\n      const addressMatch = element.match(/<[^>]*class[^>]*address[^>]*>([^<]+)</i);\n      if (addressMatch) competitor['Adres'] = addressMatch[1].trim();\n      \n      // Extract website\n      const websiteMatch = element.match(/href=\"([^\"]+)\"/i);\n      if (websiteMatch) competitor['Web Sitesi'] = websiteMatch[1];\n      \n      // Set defaults\n      competitor['Kategoriler'] = competitor['Kategoriler'] || 'N/A';\n      competitor['Fotoğraf Sayısı'] = competitor['Fotoğraf Sayısı'] || '0';\n      competitor['Sahiplenme Durumu'] = competitor['Sahiplenme Durumu'] || 'Unknown';\n      competitor['Bulunduğu Konum Sayısı'] = competitor['Bulunduğu Konum Sayısı'] || '0';\n      competitor['Ortalama Sıralama'] = competitor['Ortalama Sıralama'] || '0';\n      \n      if (competitor['İsim']) {\n        competitors.push(competitor);\n      }\n    }\n  });\n  \n  return competitors;\n}\n\nconst competitors = parseCompetitors(competitorsHtml);\n\nreturn {\n  json: {\n    rakipler: competitors\n  }\n};"
+      },
+      "id": "8h9i0j1k-2l3m-4n5o-6p7q-r8s9t0u1v2w3",
+      "name": "Function - Parse Competitors",
+      "type": "n8n-nodes-base.function",
+      "typeVersion": 1,
+      "position": [
+        1340,
+        320
+      ],
+      "notes": "html_parser.py - Competitors parsing"
+    },
+    {
+      "parameters": {
+        "functionCode": "// Sponsored listings parsing\nconst sponsoredHtml = items[0].json.data || [];\n\nfunction parseSponsoredListings(sponsoredElements) {\n  const sponsored = [];\n  \n  sponsoredElements.forEach(element => {\n    if (typeof element === 'string') {\n      const listing = {};\n      \n      // Extract name\n      const nameMatch = element.match(/<[^>]*class[^>]*title[^>]*>([^<]+)</i);\n      if (nameMatch) listing['İsim'] = nameMatch[1].trim();\n      \n      // Extract description\n      const descMatch = element.match(/<[^>]*class[^>]*description[^>]*>([^<]+)</i);\n      if (descMatch) listing['Açıklama'] = descMatch[1].trim();\n      \n      // Extract link\n      const linkMatch = element.match(/href=\"([^\"]+)\"/i);\n      if (linkMatch) listing['Link'] = linkMatch[1];\n      \n      if (listing['İsim']) {\n        sponsored.push(listing);\n      }\n    }\n  });\n  \n  return sponsored;\n}\n\nconst sponsoredListings = parseSponsoredListings(sponsoredHtml);\n\nreturn {\n  json: {\n    sponsorlu_listeler: sponsoredListings\n  }\n};"
+      },
+      "id": "9i0j1k2l-3m4n-5o6p-7q8r-s9t0u1v2w3x4",
+      "name": "Function - Parse Sponsored",
+      "type": "n8n-nodes-base.function",
+      "typeVersion": 1,
+      "position": [
+        1340,
+        440
+      ],
+      "notes": "html_parser.py - Sponsorlu listeler parsing"
+    },
+    {
+      "parameters": {
+        "url": "={{ $json.base_url }}/scans/get-competitors-list",
+        "sendQuery": true,
+        "queryParameters": {
+          "parameters": [
+            {
+              "name": "scan_guid",
+              "value": "={{ $json.javascript_data.scan_guid }}"
+            }
+          ]
+        },
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "User-Agent",
+              "value": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/115.0 Safari/537.36"
+            },
+            {
+              "name": "Accept",
+              "value": "application/json,text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8"
+            }
+          ]
+        },
+        "options": {
+          "timeout": 30000
+        }
+      },
+      "id": "0j1k2l3m-4n5o-6p7q-8r9s-t0u1v2w3x4y5",
+      "name": "HTTP Request - API Competitors",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.1,
+      "position": [
+        1120,
+        560
+      ],
+      "notes": "api_client.py - Competitors API çağrısı"
+    },
+    {
+      "parameters": {
+        "functionCode": "// API Analytics calls for each pinz location\nconst jsData = items[0].json.javascript_data;\nconst baseUrl = 'https://www.local-rank.report';\n\nconst apiRequests = [];\n\nif (jsData.pinz_array && jsData.pinz_array.length > 0) {\n  jsData.pinz_array.forEach((pin, index) => {\n    if (pin.url) {\n      apiRequests.push({\n        url: baseUrl + pin.url,\n        method: 'GET',\n        headers: {\n          'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/115.0 Safari/537.36',\n          'Accept': 'application/json,text/html'\n        },\n        location_index: index,\n        location_data: pin\n      });\n    }\n  });\n}\n\nreturn apiRequests.map(req => ({ json: req }));"
+      },
+      "id": "1k2l3m4n-5o6p-7q8r-9s0t-u1v2w3x4y5z6",
+      "name": "Function - Prepare API Calls",
+      "type": "n8n-nodes-base.function",
+      "typeVersion": 1,
+      "position": [
+        900,
+        560
+      ],
+      "notes": "api_client.py - API çağrıları hazırlığı"
+    },
+    {
+      "parameters": {
+        "mode": "combine",
+        "combinationMode": "mergeByPosition",
+        "options": {}
+      },
+      "id": "2l3m4n5o-6p7q-8r9s-0t1u-v2w3x4y5z6a7",
+      "name": "Merge - All Data",
+      "type": "n8n-nodes-base.merge",
+      "typeVersion": 2.1,
+      "position": [
+        1560,
+        360
+      ],
+      "notes": "Tüm verileri birleştir"
+    },
+    {
+      "parameters": {
+        "functionCode": "// data_exporter.py modülü fonksiyonalitesi\n// Tüm verileri birleştir ve metadata ekle\n\nconst ozet = items.find(item => item.json.ozet_bilgiler)?.json.ozet_bilgiler || {};\nconst rakipler = items.find(item => item.json.rakipler)?.json.rakipler || [];\nconst sponsorlu = items.find(item => item.json.sponsorlu_listeler)?.json.sponsorlu_listeler || [];\nconst jsData = items.find(item => item.json.javascript_data)?.json.javascript_data || {};\n\n// Map verileri çıkar\nconst haritaVerileri = [];\nif (jsData.pinz_array) {\n  jsData.pinz_array.forEach((pin, index) => {\n    haritaVerileri.push({\n      'Index': index + 1,\n      'Latitude': pin.lat || 'N/A',\n      'Longitude': pin.lng || 'N/A',\n      'Title': pin.title || 'N/A',\n      'URL': pin.url || 'N/A'\n    });\n  });\n}\n\n// Final data structure\nconst finalData = {\n  ozet_bilgiler: ozet,\n  rakipler: rakipler,\n  sponsorlu_listeler: sponsorlu,\n  detayli_sonuclar: [], // API'den gelecek\n  harita_verileri: haritaVerileri,\n  javascript_verileri: {\n    scan_guid: jsData.scan_guid || '',\n    place_id: jsData.place_id || '',\n    pinz_count: jsData.pinz_count || 0\n  },\n  api_verileri: [], // API'den gelecek\n  metadata: {\n    scraped_at: new Date().toISOString(),\n    url: 'https://www.local-rank.report/scan/97919fde-e478-4081-983f-7e0065b6b5bb',\n    scraper_version: '4.0',\n    method: 'n8n_modular_hybrid',\n    total_competitors: rakipler.length,\n    total_locations: haritaVerileri.length\n  }\n};\n\nreturn { json: finalData };"
+      },
+      "id": "3m4n5o6p-7q8r-9s0t-1u2v-w3x4y5z6a7b8",
+      "name": "Function - Combine All Data",
+      "type": "n8n-nodes-base.function",
+      "typeVersion": 1,
+      "position": [
+        1780,
+        360
+      ],
+      "notes": "data_exporter.py - Veri birleştirme"
+    },
+    {
+      "parameters": {
+        "fileName": "={{ 'modular_scraped_data_' + $now.format('YYYYMMDD_HHmmss') + '.json' }}",
+        "dataPropertyName": "data",
+        "options": {}
+      },
+      "id": "4n5o6p7q-8r9s-0t1u-2v3w-x4y5z6a7b8c9",
+      "name": "Write Binary File - JSON",
+      "type": "n8n-nodes-base.writeBinaryFile",
+      "typeVersion": 1,
+      "position": [
+        2000,
+        280
+      ],
+      "notes": "JSON dosyası oluştur"
+    },
+    {
+      "parameters": {
+        "operation": "toFile",
+        "fileFormat": "csv",
+        "fileName": "={{ 'competitors_' + $now.format('YYYYMMDD_HHmmss') + '.csv' }}",
+        "options": {
+          "fileName": "={{ 'rakipler_' + $now.format('YYYYMMDD_HHmmss') + '.csv' }}"
+        }
+      },
+      "id": "5o6p7q8r-9s0t-1u2v-3w4x-y5z6a7b8c9d0",
+      "name": "Convert to File - CSV Competitors",
+      "type": "n8n-nodes-base.convertToFile",
+      "typeVersion": 1,
+      "position": [
+        2000,
+        400
+      ],
+      "notes": "Rakipler CSV dosyası"
+    },
+    {
+      "parameters": {
+        "operation": "toFile",
+        "fileFormat": "xlsx",
+        "fileName": "={{ 'modular_scraped_data_' + $now.format('YYYYMMDD_HHmmss') + '.xlsx' }}",
+        "options": {}
+      },
+      "id": "6p7q8r9s-0t1u-2v3w-4x5y-z6a7b8c9d0e1",
+      "name": "Convert to File - Excel",
+      "type": "n8n-nodes-base.convertToFile",
+      "typeVersion": 1,
+      "position": [
+        2000,
+        520
+      ],
+      "notes": "Excel dosyası oluştur"
+    },
+    {
+      "parameters": {
+        "functionCode": "// Rate limiting function\nconst delay = ms => new Promise(resolve => setTimeout(resolve, ms));\n\nconst rateLimit = 1000; // 1 saniye bekleme\nconst randomDelay = Math.random() * 500; // 0-500ms rastgele ekleme\n\nawait delay(rateLimit + randomDelay);\n\nreturn items;"
+      },
+      "id": "7q8r9s0t-1u2v-3w4x-5y6z-a7b8c9d0e1f2",
+      "name": "Function - Rate Limiting",
+      "type": "n8n-nodes-base.function",
+      "typeVersion": 1,
+      "position": [
+        680,
+        500
+      ],
+      "notes": "Rate limiting - etik scraping"
+    }
+  ],
+  "connections": {
+    "Start": {
+      "main": [
+        [
+          {
+            "node": "HTTP Request - Get HTML",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "HTTP Request - Get HTML": {
+      "main": [
+        [
+          {
+            "node": "Merge - HTML Content",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Merge - HTML Content": {
+      "main": [
+        [
+          {
+            "node": "Function - Extract JS Data",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Function - Extract JS Data": {
+      "main": [
+        [
+          {
+            "node": "HTML Extract - Scan Information",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "HTML Extract - Competitors",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "HTML Extract - Sponsored",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Function - Prepare API Calls",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "HTML Extract - Scan Information": {
+      "main": [
+        [
+          {
+            "node": "Function - Parse Summary Info",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "HTML Extract - Competitors": {
+      "main": [
+        [
+          {
+            "node": "Function - Parse Competitors",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "HTML Extract - Sponsored": {
+      "main": [
+        [
+          {
+            "node": "Function - Parse Sponsored",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Function - Parse Summary Info": {
+      "main": [
+        [
+          {
+            "node": "Merge - All Data",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Function - Parse Competitors": {
+      "main": [
+        [
+          {
+            "node": "Merge - All Data",
+            "type": "main",
+            "index": 1
+          }
+        ]
+      ]
+    },
+    "Function - Parse Sponsored": {
+      "main": [
+        [
+          {
+            "node": "Merge - All Data",
+            "type": "main",
+            "index": 2
+          }
+        ]
+      ]
+    },
+    "Function - Prepare API Calls": {
+      "main": [
+        [
+          {
+            "node": "HTTP Request - API Competitors",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "HTTP Request - API Competitors": {
+      "main": [
+        [
+          {
+            "node": "Merge - All Data",
+            "type": "main",
+            "index": 3
+          }
+        ]
+      ]
+    },
+    "Merge - All Data": {
+      "main": [
+        [
+          {
+            "node": "Function - Combine All Data",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Function - Combine All Data": {
+      "main": [
+        [
+          {
+            "node": "Write Binary File - JSON",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Convert to File - CSV Competitors",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Convert to File - Excel",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "pinData": {},
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "staticData": null,
+  "tags": [
+    {
+      "id": "scraping",
+      "name": "Web Scraping"
+    },
+    {
+      "id": "local-rank",
+      "name": "Local Rank Report"
+    },
+    {
+      "id": "modular",
+      "name": "Modular"
+    }
+  ],
+  "triggerCount": 1,
+  "updatedAt": "2025-01-08T10:00:00.000Z",
+  "versionId": "1"
+}
