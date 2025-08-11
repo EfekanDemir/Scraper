@@ -2,13 +2,29 @@
   "name": "Modular Web Scraper - Local Rank Report",
   "nodes": [
     {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "scraper-webhook",
+        "options": {}
+      },
+      "id": "webhook-trigger-001",
+      "name": "Webhook",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 1,
+      "position": [
+        60,
+        300
+      ],
+      "webhookId": "a1b2c3d4-e5f6-7890-abcd-ef1234567890"
+    },
+    {
       "parameters": {},
       "id": "af6c2e3c-3b4c-4d5e-8f9a-1b2c3d4e5f6g",
       "name": "Start",
       "type": "n8n-nodes-base.start",
       "typeVersion": 1,
       "position": [
-        240,
+        280,
         300
       ]
     },
@@ -46,7 +62,7 @@
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.1,
       "position": [
-        460,
+        500,
         300
       ],
       "notes": "web_client.py modülü - HTML içeriğini alır"
@@ -62,7 +78,7 @@
       "type": "n8n-nodes-base.merge",
       "typeVersion": 2.1,
       "position": [
-        680,
+        720,
         300
       ]
     },
@@ -75,7 +91,7 @@
       "type": "n8n-nodes-base.function",
       "typeVersion": 1,
       "position": [
-        900,
+        940,
         300
       ],
       "notes": "js_extractor.py modülü - JavaScript verilerini çıkarır"
@@ -100,7 +116,7 @@
       "type": "n8n-nodes-base.htmlExtract",
       "typeVersion": 1,
       "position": [
-        1120,
+        1160,
         200
       ],
       "notes": "html_parser.py - Scan Information parsing"
@@ -125,7 +141,7 @@
       "type": "n8n-nodes-base.htmlExtract",
       "typeVersion": 1,
       "position": [
-        1120,
+        1160,
         320
       ],
       "notes": "html_parser.py - Competitors parsing"
@@ -150,7 +166,7 @@
       "type": "n8n-nodes-base.htmlExtract",
       "typeVersion": 1,
       "position": [
-        1120,
+        1160,
         440
       ],
       "notes": "html_parser.py - Sponsorlu listeler parsing"
@@ -164,7 +180,7 @@
       "type": "n8n-nodes-base.function",
       "typeVersion": 1,
       "position": [
-        1340,
+        1380,
         200
       ],
       "notes": "html_parser.py - Özet bilgiler parsing"
@@ -178,7 +194,7 @@
       "type": "n8n-nodes-base.function",
       "typeVersion": 1,
       "position": [
-        1340,
+        1380,
         320
       ],
       "notes": "html_parser.py - Competitors parsing"
@@ -192,7 +208,7 @@
       "type": "n8n-nodes-base.function",
       "typeVersion": 1,
       "position": [
-        1340,
+        1380,
         440
       ],
       "notes": "html_parser.py - Sponsorlu listeler parsing"
@@ -231,7 +247,7 @@
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.1,
       "position": [
-        1120,
+        1160,
         560
       ],
       "notes": "api_client.py - Competitors API çağrısı"
@@ -245,7 +261,7 @@
       "type": "n8n-nodes-base.function",
       "typeVersion": 1,
       "position": [
-        900,
+        940,
         560
       ],
       "notes": "api_client.py - API çağrıları hazırlığı"
@@ -261,7 +277,7 @@
       "type": "n8n-nodes-base.merge",
       "typeVersion": 2.1,
       "position": [
-        1560,
+        1600,
         360
       ],
       "notes": "Tüm verileri birleştir"
@@ -275,7 +291,7 @@
       "type": "n8n-nodes-base.function",
       "typeVersion": 1,
       "position": [
-        1780,
+        1820,
         360
       ],
       "notes": "data_exporter.py - Veri birleştirme"
@@ -291,7 +307,7 @@
       "type": "n8n-nodes-base.writeBinaryFile",
       "typeVersion": 1,
       "position": [
-        2000,
+        2040,
         280
       ],
       "notes": "JSON dosyası oluştur"
@@ -310,7 +326,7 @@
       "type": "n8n-nodes-base.convertToFile",
       "typeVersion": 1,
       "position": [
-        2000,
+        2040,
         400
       ],
       "notes": "Rakipler CSV dosyası"
@@ -327,7 +343,7 @@
       "type": "n8n-nodes-base.convertToFile",
       "typeVersion": 1,
       "position": [
-        2000,
+        2040,
         520
       ],
       "notes": "Excel dosyası oluştur"
@@ -341,13 +357,24 @@
       "type": "n8n-nodes-base.function",
       "typeVersion": 1,
       "position": [
-        680,
+        720,
         500
       ],
       "notes": "Rate limiting - etik scraping"
     }
   ],
   "connections": {
+    "Webhook": {
+      "main": [
+        [
+          {
+            "node": "Start",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
     "Start": {
       "main": [
         [
