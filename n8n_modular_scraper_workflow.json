@@ -232,14 +232,28 @@
     },
     {
       "parameters": {
+        "functionCode": "// API Analytics calls for each pinz location\nconst jsData = $input.first().json.javascript_data;\nconst baseUrl = 'https://www.local-rank.report';\n\nconst apiRequests = [];\n\nif (jsData.pinz_array && jsData.pinz_array.length > 0) {\n  jsData.pinz_array.forEach((pin, index) => {\n    if (pin.url) {\n      apiRequests.push({\n        url: baseUrl + pin.url,\n        method: 'GET',\n        headers: {\n          'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',\n          'Accept': 'application/json,text/html'\n        },\n        location_index: index,\n        location_data: pin\n      });\n    }\n  });\n}\n\n// Also prepare competitors API call\nconst competitorsApiCall = {\n  url: 'https://www.local-rank.report/scans/get-competitors-list',\n  method: 'GET',\n  queryParams: {\n    scan_guid: jsData.scan_guid\n  },\n  headers: {\n    'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',\n    'Accept': 'application/json,text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8,application/signed-exchange;v=b3;q=0.7'\n  }\n};\n\nreturn {\n  api_requests: apiRequests,\n  competitors_api: competitorsApiCall,\n  scan_guid: jsData.scan_guid\n};"
+      },
+      "id": "1k2l3m4n-5o6p-7q8r-9s0t-u1v2w3x4y5z6",
+      "name": "Function - Prepare API Calls",
+      "type": "n8n-nodes-base.function",
+      "typeVersion": 2,
+      "position": [
+        940,
+        560
+      ],
+      "notes": "api_client.py - API çağrıları hazırlığı"
+    },
+    {
+      "parameters": {
         "method": "GET",
-        "url": "https://www.local-rank.report/scans/get-competitors-list",
+        "url": "={{ $json.competitors_api.url }}",
         "sendQuery": true,
         "queryParameters": {
           "parameters": [
             {
               "name": "scan_guid",
-              "value": "={{ $json.javascript_data.scan_guid }}"
+              "value": "={{ $json.scan_guid }}"
             }
           ]
         },
@@ -298,7 +312,7 @@
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.2,
       "position": [
-        940,
+        1160,
         560
       ],
       "notes": "api_client.py - Competitors API çağrısı"
@@ -312,9 +326,9 @@
       "id": "2l3m4n5o-6p7q-8r9s-0t1u-v2w3x4y5z6a7",
       "name": "Merge - All Data",
       "type": "n8n-nodes-base.merge",
-      "typeVersion": 3,
+      "typeVersion": 2.1,
       "position": [
-        1380,
+        1600,
         360
       ],
       "notes": "Tüm verileri birleştir"
@@ -328,7 +342,7 @@
       "type": "n8n-nodes-base.function",
       "typeVersion": 2,
       "position": [
-        1600,
+        1820,
         360
       ],
       "notes": "data_exporter.py - Veri birleştirme"
@@ -344,7 +358,7 @@
       "type": "n8n-nodes-base.writeBinaryFile",
       "typeVersion": 1,
       "position": [
-        1820,
+        2040,
         280
       ],
       "notes": "JSON dosyası oluştur"
@@ -362,7 +376,7 @@
       "type": "n8n-nodes-base.convertToFile",
       "typeVersion": 1.1,
       "position": [
-        1820,
+        2040,
         400
       ],
       "notes": "Rakipler CSV dosyası"
@@ -381,7 +395,7 @@
       "type": "n8n-nodes-base.convertToFile",
       "typeVersion": 1.1,
       "position": [
-        1820,
+        2040,
         520
       ],
       "notes": "Excel dosyası oluştur"
@@ -395,7 +409,7 @@
       "type": "n8n-nodes-base.stopAndError",
       "typeVersion": 1,
       "position": [
-        2040,
+        2260,
         360
       ],
       "notes": "Workflow başarılı tamamlandığında durdur"
@@ -410,7 +424,7 @@
       "type": "n8n-nodes-base.stopAndError",
       "typeVersion": 1,
       "position": [
-        1380,
+        1600,
         600
       ],
       "notes": "Hata durumunda workflow'u durdur ve hata mesajı ver"
@@ -469,7 +483,7 @@
             "index": 0
           },
           {
-            "node": "HTTP Request - API Competitors",
+            "node": "Function - Prepare API Calls",
             "type": "main",
             "index": 0
           }
@@ -538,6 +552,17 @@
             "node": "Merge - All Data",
             "type": "main",
             "index": 2
+          }
+        ]
+      ]
+    },
+    "Function - Prepare API Calls": {
+      "main": [
+        [
+          {
+            "node": "HTTP Request - API Competitors",
+            "type": "main",
+            "index": 0
           }
         ]
       ]
