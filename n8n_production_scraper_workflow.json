@@ -1,0 +1,497 @@
+{
+  "name": "Local Rank Report Scraper - Production Ready",
+  "nodes": [
+    {
+      "parameters": {
+        "values": {
+          "string": [
+            {
+              "name": "url",
+              "value": "https://www.local-rank.report/scan/97919fde-e478-4081-983f-7e0065b6b5bb"
+            },
+            {
+              "name": "user_agent",
+              "value": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
+            }
+          ],
+          "number": [
+            {
+              "name": "max_retries",
+              "value": 3
+            },
+            {
+              "name": "rate_limit_seconds",
+              "value": 2
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "config_node",
+      "name": "Configuration",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.2,
+      "position": [240, 240]
+    },
+    {
+      "parameters": {
+        "amount": 2,
+        "unit": "seconds"
+      },
+      "id": "initial_delay",
+      "name": "Initial Rate Limit",
+      "type": "n8n-nodes-base.wait",
+      "typeVersion": 1,
+      "position": [440, 240]
+    },
+    {
+      "parameters": {
+        "url": "={{ $json.url }}",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "User-Agent",
+              "value": "={{ $json.user_agent }}"
+            },
+            {
+              "name": "Accept",
+              "value": "text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8"
+            },
+            {
+              "name": "Accept-Language",
+              "value": "en-US,en;q=0.5"
+            },
+            {
+              "name": "Accept-Encoding",
+              "value": "gzip, deflate, br"
+            },
+            {
+              "name": "Connection",
+              "value": "keep-alive"
+            },
+            {
+              "name": "Upgrade-Insecure-Requests",
+              "value": "1"
+            }
+          ]
+        },
+        "options": {
+          "timeout": 30000,
+          "retry": {
+            "retry": {
+              "retryOnHttpStatusCodes": [
+                {
+                  "values": "429,500,502,503,504"
+                }
+              ],
+              "retryCount": 3,
+              "retryInterval": 5000
+            }
+          },
+          "redirect": {
+            "redirect": {}
+          }
+        }
+      },
+      "id": "http_request_main",
+      "name": "HTTP Request - Get HTML",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.1,
+      "position": [640, 240]
+    },
+    {
+      "parameters": {
+        "functionCode": "// Validate HTTP response\nconst data = $input.first().json;\n\n// Check if we have valid HTML content\nif (!data || typeof data !== 'string') {\n  throw new Error('Invalid HTML response received');\n}\n\n// Check for error pages\nif (data.includes('404') || data.includes('Not Found') || data.includes('Error')) {\n  throw new Error('Error page detected in response');\n}\n\n// Check for bot detection\nif (data.includes('captcha') || data.includes('robot') || data.includes('blocked')) {\n  throw new Error('Bot detection triggered');\n}\n\n// Check minimum content length\nif (data.length < 1000) {\n  throw new Error('Response content too short, possible error');\n}\n\nreturn [{ json: { html_content: data, validation_passed: true } }];"
+      },
+      "id": "validate_response",
+      "name": "Validate HTTP Response",
+      "type": "n8n-nodes-base.function",
+      "typeVersion": 1,
+      "position": [840, 240]
+    },
+    {
+      "parameters": {
+        "dataPropertyName": "html_content",
+        "extractionValues": {
+          "values": [
+            {
+              "key": "scan_info_table",
+              "cssSelector": "div.card-body table",
+              "returnValue": "html"
+            },
+            {
+              "key": "rank_summary_table",
+              "cssSelector": "div.card-body table:nth-of-type(2)",
+              "returnValue": "html"
+            },
+            {
+              "key": "competitors_table",
+              "cssSelector": "div.col-md-12 table",
+              "returnValue": "html"
+            },
+            {
+              "key": "sponsored_listings",
+              "cssSelector": "div.sponsored-listings",
+              "returnValue": "html"
+            },
+            {
+              "key": "all_scripts",
+              "cssSelector": "script",
+              "returnValue": "html"
+            },
+            {
+              "key": "page_title",
+              "cssSelector": "title",
+              "returnValue": "text"
+            }
+          ]
+        }
+      },
+      "id": "html_extract",
+      "name": "HTML Extract",
+      "type": "n8n-nodes-base.htmlExtract",
+      "typeVersion": 1,
+      "position": [1040, 240]
+    },
+    {
+      "parameters": {
+        "functionCode": "// Validate extracted HTML elements\nconst data = $input.first().json;\n\n// Check if critical elements were found\nif (!data.scan_info_table && !data.rank_summary_table) {\n  throw new Error('Critical HTML elements not found - possible page structure change');\n}\n\n// Check for script tags\nif (!data.all_scripts) {\n  console.log('Warning: No script tags found - JavaScript data extraction may fail');\n}\n\n// Log extraction summary\nconsole.log('HTML Extraction Summary:', {\n  scan_info_found: !!data.scan_info_table,\n  rank_summary_found: !!data.rank_summary_table,\n  competitors_found: !!data.competitors_table,\n  scripts_found: !!data.all_scripts,\n  title: data.page_title\n});\n\nreturn [{ json: { ...data, extraction_validated: true } }];"
+      },
+      "id": "validate_extraction",
+      "name": "Validate HTML Extraction",
+      "type": "n8n-nodes-base.function",
+      "typeVersion": 1,
+      "position": [1240, 240]
+    },
+    {
+      "parameters": {
+        "functionCode": "// Extract and validate JavaScript data\nconst scriptsHtml = $input.first().json.all_scripts;\nif (!scriptsHtml) {\n  throw new Error('No script tags found for JavaScript extraction');\n}\n\nconst cheerio = require('cheerio');\nconst $ = cheerio.load(scriptsHtml);\n\nlet jsData = {\n  pinz: [],\n  scan_guid: null,\n  place_id: null,\n  base_url: ''\n};\n\n// Extract base URL\nconst configData = $input.first().json;\nif (configData.url) {\n  try {\n    const urlObj = new URL(configData.url);\n    jsData.base_url = `${urlObj.protocol}//${urlObj.host}`;\n  } catch (e) {\n    throw new Error('Invalid URL provided: ' + e.message);\n  }\n}\n\nlet scriptFound = false;\n\n$('script').each((i, script) => {\n  const scriptText = $(script).html() || '';\n  \n  // Extract pinz array with validation\n  const pinzMatch = scriptText.match(/var\\s+pinz\\s*=\\s*(\\[.*?\\]);/s);\n  if (pinzMatch) {\n    try {\n      const parsedPinz = JSON.parse(pinzMatch[1]);\n      if (Array.isArray(parsedPinz) && parsedPinz.length > 0) {\n        jsData.pinz = parsedPinz;\n        scriptFound = true;\n      }\n    } catch (e) {\n      console.log('Error parsing pinz array:', e.message);\n    }\n  }\n  \n  // Extract scan_guid with validation\n  const scanGuidMatch = scriptText.match(/scan_guid['\"]?\\s*[:=]\\s*['\"]([^'\"]+)['\"]/i);\n  if (scanGuidMatch && scanGuidMatch[1]) {\n    jsData.scan_guid = scanGuidMatch[1];\n    scriptFound = true;\n  }\n  \n  // Extract place_id with validation\n  const placeIdMatch = scriptText.match(/place_id['\"]?\\s*[:=]\\s*['\"]([^'\"]+)['\"]/i);\n  if (placeIdMatch && placeIdMatch[1]) {\n    jsData.place_id = placeIdMatch[1];\n  }\n});\n\n// Validate extracted data\nif (!scriptFound) {\n  throw new Error('No valid JavaScript data found in scripts');\n}\n\nif (!jsData.scan_guid) {\n  throw new Error('scan_guid not found - required for API calls');\n}\n\nif (jsData.pinz.length === 0) {\n  console.log('Warning: No pinz data found - map data will be empty');\n}\n\nconsole.log('JavaScript Extraction Summary:', {\n  pinz_count: jsData.pinz.length,\n  scan_guid_found: !!jsData.scan_guid,\n  place_id_found: !!jsData.place_id,\n  base_url: jsData.base_url\n});\n\nreturn [{ json: { javascript_data: jsData, original_data: $input.first().json } }];"
+      },
+      "id": "extract_validate_js",
+      "name": "Extract & Validate JS Data",
+      "type": "n8n-nodes-base.function",
+      "typeVersion": 1,
+      "position": [1440, 240]
+    },
+    {
+      "parameters": {
+        "amount": 2,
+        "unit": "seconds"
+      },
+      "id": "api_rate_limit",
+      "name": "API Rate Limit",
+      "type": "n8n-nodes-base.wait",
+      "typeVersion": 1,
+      "position": [1640, 180]
+    },
+    {
+      "parameters": {
+        "url": "={{ $json.javascript_data.base_url }}/scans/get-competitors-list",
+        "sendQuery": true,
+        "queryParameters": {
+          "parameters": [
+            {
+              "name": "scan_guid",
+              "value": "={{ $json.javascript_data.scan_guid }}"
+            }
+          ]
+        },
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "User-Agent",
+              "value": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36"
+            },
+            {
+              "name": "Accept",
+              "value": "application/json, text/plain, */*"
+            },
+            {
+              "name": "Referer",
+              "value": "={{ $json.original_data.url }}"
+            }
+          ]
+        },
+        "options": {
+          "timeout": 15000,
+          "retry": {
+            "retry": {
+              "retryOnHttpStatusCodes": [
+                {
+                  "values": "429,500,502,503,504"
+                }
+              ],
+              "retryCount": 2,
+              "retryInterval": 3000
+            }
+          }
+        }
+      },
+      "id": "api_competitors",
+      "name": "API - Get Competitors",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.1,
+      "position": [1840, 140]
+    },
+    {
+      "parameters": {
+        "functionCode": "// Parse HTML data with error handling\nconst originalData = $input.first().json.original_data;\nconst cheerio = require('cheerio');\n\nlet parsedData = {\n  scan_information: {},\n  rank_summary: {},\n  competitors: []\n};\n\ntry {\n  // Parse Scan Information\n  if (originalData.scan_info_table) {\n    const $ = cheerio.load(originalData.scan_info_table);\n    $('tr').each((i, row) => {\n      const cells = $(row).find('td');\n      if (cells.length >= 2) {\n        const key = $(cells[0]).text().trim().replace(':', '');\n        const value = $(cells[1]).text().trim();\n        if (key && value) {\n          parsedData.scan_information[key] = value;\n        }\n      }\n    });\n  }\n\n  // Parse Rank Summary\n  if (originalData.rank_summary_table) {\n    const $ = cheerio.load(originalData.rank_summary_table);\n    $('tr').each((i, row) => {\n      const cells = $(row).find('td');\n      if (cells.length >= 2) {\n        const key = $(cells[0]).text().trim().replace(':', '');\n        const value = $(cells[1]).text().trim();\n        if (key && value) {\n          parsedData.rank_summary[key] = value;\n        }\n      }\n    });\n  }\n\n  // Parse Competitors\n  if (originalData.competitors_table) {\n    const $ = cheerio.load(originalData.competitors_table);\n    $('tbody tr').each((i, row) => {\n      const cells = $(row).find('td');\n      if (cells.length >= 3) {\n        const competitor = {\n          rank: $(cells[0]).text().trim() || 'N/A',\n          business_name: $(cells[1]).text().trim() || 'N/A',\n          address: $(cells[2]).text().trim() || 'N/A',\n          phone: cells.length > 3 ? $(cells[3]).text().trim() : 'N/A',\n          website: cells.length > 4 ? $(cells[4]).text().trim() : 'N/A'\n        };\n        parsedData.competitors.push(competitor);\n      }\n    });\n  }\n\n  console.log('HTML Parsing Summary:', {\n    scan_info_fields: Object.keys(parsedData.scan_information).length,\n    rank_summary_fields: Object.keys(parsedData.rank_summary).length,\n    competitors_count: parsedData.competitors.length\n  });\n\n} catch (error) {\n  console.error('HTML parsing error:', error.message);\n  throw new Error('Failed to parse HTML data: ' + error.message);\n}\n\nreturn [{ json: parsedData }];"
+      },
+      "id": "parse_html_safe",
+      "name": "Parse HTML Data (Safe)",
+      "type": "n8n-nodes-base.function",
+      "typeVersion": 1,
+      "position": [1640, 340]
+    },
+    {
+      "parameters": {
+        "functionCode": "// Validate API response\nconst apiData = $input.first().json;\n\n// Check if API call was successful\nif (!apiData) {\n  throw new Error('No API response received');\n}\n\n// Check for API error responses\nif (apiData.error || apiData.message) {\n  throw new Error('API returned error: ' + (apiData.error || apiData.message));\n}\n\n// Validate competitors data structure\nif (apiData.data && !Array.isArray(apiData.data)) {\n  console.log('Warning: API competitors data is not an array');\n}\n\nconsole.log('API Validation Summary:', {\n  has_data: !!apiData.data,\n  data_type: typeof apiData.data,\n  data_length: Array.isArray(apiData.data) ? apiData.data.length : 'not array'\n});\n\nreturn [{ json: { validated_api_data: apiData } }];"
+      },
+      "id": "validate_api_response",
+      "name": "Validate API Response",
+      "type": "n8n-nodes-base.function",
+      "typeVersion": 1,
+      "position": [2040, 140]
+    },
+    {
+      "parameters": {
+        "mode": "combine",
+        "combinationMode": "mergeByPosition",
+        "options": {}
+      },
+      "id": "merge_all_data",
+      "name": "Merge All Data",
+      "type": "n8n-nodes-base.merge",
+      "typeVersion": 2.1,
+      "position": [2240, 240]
+    },
+    {
+      "parameters": {
+        "functionCode": "// Create comprehensive final data structure with error handling\nconst allInputs = $input.all();\n\nlet combinedData = {\n  ozet_bilgiler: {},\n  rakipler: [],\n  sponsorlu_listeler: [],\n  detayli_sonuclar: [],\n  harita_verileri: [],\n  javascript_verileri: {},\n  api_verileri: {\n    competitors: null,\n    analytics: []\n  },\n  metadata: {\n    scraped_at: new Date().toISOString(),\n    scraper_version: '3.0-n8n-production',\n    method: 'n8n_production_workflow',\n    execution_time_ms: Date.now(),\n    success: true,\n    warnings: [],\n    errors: []\n  }\n};\n\ntry {\n  // Process each input safely\n  allInputs.forEach((input, index) => {\n    try {\n      const data = input.json;\n      \n      // HTML parsed data\n      if (data.scan_information) {\n        combinedData.ozet_bilgiler = { ...combinedData.ozet_bilgiler, ...data.scan_information };\n      }\n      if (data.rank_summary) {\n        combinedData.ozet_bilgiler = { ...combinedData.ozet_bilgiler, ...data.rank_summary };\n      }\n      if (data.competitors && Array.isArray(data.competitors)) {\n        combinedData.rakipler = data.competitors;\n      }\n      \n      // JavaScript data\n      if (data.javascript_data) {\n        combinedData.javascript_verileri = data.javascript_data;\n        \n        // Extract map data from pinz array\n        if (data.javascript_data.pinz && Array.isArray(data.javascript_data.pinz)) {\n          combinedData.harita_verileri = data.javascript_data.pinz.map(pin => ({\n            lat: pin.lat || 0,\n            lng: pin.lng || 0,\n            title: pin.title || 'N/A',\n            address: pin.address || 'N/A',\n            url: pin.url || 'N/A'\n          }));\n        }\n      }\n      \n      // API data from competitors endpoint\n      if (data.validated_api_data && data.validated_api_data.data) {\n        combinedData.api_verileri.competitors = data.validated_api_data.data;\n      }\n      \n    } catch (error) {\n      combinedData.metadata.warnings.push(`Error processing input ${index}: ${error.message}`);\n    }\n  });\n\n  // Calculate final execution time\n  combinedData.metadata.execution_time_ms = Date.now() - combinedData.metadata.execution_time_ms;\n\n  // Add data quality metrics\n  combinedData.metadata.data_quality = {\n    ozet_bilgiler_count: Object.keys(combinedData.ozet_bilgiler).length,\n    rakipler_count: combinedData.rakipler.length,\n    harita_verileri_count: combinedData.harita_verileri.length,\n    api_data_available: !!combinedData.api_verileri.competitors,\n    javascript_data_complete: !!(combinedData.javascript_verileri.scan_guid && combinedData.javascript_verileri.pinz)\n  };\n\n  console.log('Final Data Assembly Summary:', combinedData.metadata.data_quality);\n\n} catch (error) {\n  combinedData.metadata.success = false;\n  combinedData.metadata.errors.push('Data assembly failed: ' + error.message);\n  console.error('Critical error in data assembly:', error);\n}\n\nreturn [{ json: combinedData }];"
+      },
+      "id": "assemble_final_data",
+      "name": "Assemble Final Data",
+      "type": "n8n-nodes-base.function",
+      "typeVersion": 1,
+      "position": [2440, 240]
+    },
+    {
+      "parameters": {
+        "operation": "write",
+        "fileName": "={{ 'production_scraped_data_' + $now.format('YYYY-MM-DD_HH-mm-ss') + '.json' }}",
+        "fileContent": "={{ JSON.stringify($json, null, 2) }}",
+        "options": {}
+      },
+      "id": "save_json_final",
+      "name": "Save to JSON",
+      "type": "n8n-nodes-base.readWriteFile",
+      "typeVersion": 1,
+      "position": [2640, 180]
+    },
+    {
+      "parameters": {
+        "functionCode": "// Create detailed execution log\nconst data = $input.first().json;\n\nconst executionLog = {\n  timestamp: new Date().toISOString(),\n  workflow_name: 'Local Rank Report Scraper - Production',\n  execution_summary: {\n    success: data.metadata.success,\n    execution_time_ms: data.metadata.execution_time_ms,\n    warnings_count: data.metadata.warnings.length,\n    errors_count: data.metadata.errors.length\n  },\n  data_summary: data.metadata.data_quality,\n  warnings: data.metadata.warnings,\n  errors: data.metadata.errors,\n  files_created: [\n    `production_scraped_data_${new Date().toISOString().split('T')[0]}.json`\n  ]\n};\n\n// Log to console for monitoring\nconsole.log('=== EXECUTION COMPLETE ===');\nconsole.log('Success:', executionLog.execution_summary.success);\nconsole.log('Duration:', executionLog.execution_summary.execution_time_ms + 'ms');\nconsole.log('Data Quality:', executionLog.data_summary);\nif (executionLog.warnings.length > 0) {\n  console.log('Warnings:', executionLog.warnings);\n}\nif (executionLog.errors.length > 0) {\n  console.error('Errors:', executionLog.errors);\n}\n\nreturn [{ json: executionLog }];"
+      },
+      "id": "create_execution_log",
+      "name": "Create Execution Log",
+      "type": "n8n-nodes-base.function",
+      "typeVersion": 1,
+      "position": [2640, 280]
+    },
+    {
+      "parameters": {
+        "operation": "write",
+        "fileName": "={{ 'execution_log_' + $now.format('YYYY-MM-DD_HH-mm-ss') + '.json' }}",
+        "fileContent": "={{ JSON.stringify($json, null, 2) }}",
+        "options": {}
+      },
+      "id": "save_execution_log",
+      "name": "Save Execution Log",
+      "type": "n8n-nodes-base.readWriteFile",
+      "typeVersion": 1,
+      "position": [2640, 380]
+    }
+  ],
+  "connections": {
+    "Configuration": {
+      "main": [
+        [
+          {
+            "node": "Initial Rate Limit",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Initial Rate Limit": {
+      "main": [
+        [
+          {
+            "node": "HTTP Request - Get HTML",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "HTTP Request - Get HTML": {
+      "main": [
+        [
+          {
+            "node": "Validate HTTP Response",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Validate HTTP Response": {
+      "main": [
+        [
+          {
+            "node": "HTML Extract",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "HTML Extract": {
+      "main": [
+        [
+          {
+            "node": "Validate HTML Extraction",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Validate HTML Extraction": {
+      "main": [
+        [
+          {
+            "node": "Extract & Validate JS Data",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Extract & Validate JS Data": {
+      "main": [
+        [
+          {
+            "node": "API Rate Limit",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Parse HTML Data (Safe)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "API Rate Limit": {
+      "main": [
+        [
+          {
+            "node": "API - Get Competitors",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "API - Get Competitors": {
+      "main": [
+        [
+          {
+            "node": "Validate API Response",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Parse HTML Data (Safe)": {
+      "main": [
+        [
+          {
+            "node": "Merge All Data",
+            "type": "main",
+            "index": 1
+          }
+        ]
+      ]
+    },
+    "Validate API Response": {
+      "main": [
+        [
+          {
+            "node": "Merge All Data",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Merge All Data": {
+      "main": [
+        [
+          {
+            "node": "Assemble Final Data",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Assemble Final Data": {
+      "main": [
+        [
+          {
+            "node": "Save to JSON",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Create Execution Log",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Create Execution Log": {
+      "main": [
+        [
+          {
+            "node": "Save Execution Log",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "pinData": {},
+  "settings": {
+    "executionOrder": "v1",
+    "errorWorkflow": {
+      "callerPolicy": "workflowDefault"
+    }
+  },
+  "staticData": null,
+  "tags": ["scraping", "local-rank", "production", "error-handling"],
+  "triggerCount": 0,
+  "updatedAt": "2024-01-20T13:00:00.000Z",
+  "versionId": "3"
+}

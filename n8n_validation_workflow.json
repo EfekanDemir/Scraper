@@ -1,0 +1,339 @@
+{
+  "name": "Local Rank Report Scraper - Validation & Test",
+  "nodes": [
+    {
+      "parameters": {
+        "values": {
+          "string": [
+            {
+              "name": "test_url",
+              "value": "https://www.local-rank.report/scan/97919fde-e478-4081-983f-7e0065b6b5bb"
+            }
+          ],
+          "boolean": [
+            {
+              "name": "run_full_test",
+              "value": true
+            },
+            {
+              "name": "validate_data_quality",
+              "value": true
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "test_config",
+      "name": "Test Configuration",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.2,
+      "position": [240, 240]
+    },
+    {
+      "parameters": {
+        "functionCode": "// Initialize test suite\nconst config = $input.first().json;\n\nconst testSuite = {\n  test_id: `test_${Date.now()}`,\n  started_at: new Date().toISOString(),\n  test_url: config.test_url,\n  run_full_test: config.run_full_test,\n  validate_data_quality: config.validate_data_quality,\n  tests: {\n    connectivity: { status: 'pending', details: null },\n    html_structure: { status: 'pending', details: null },\n    javascript_data: { status: 'pending', details: null },\n    api_endpoints: { status: 'pending', details: null },\n    data_quality: { status: 'pending', details: null }\n  },\n  overall_status: 'running'\n};\n\nconsole.log('🧪 Starting validation test suite:', testSuite.test_id);\n\nreturn [{ json: testSuite }];"
+      },
+      "id": "init_test_suite",
+      "name": "Initialize Test Suite",
+      "type": "n8n-nodes-base.function",
+      "typeVersion": 1,
+      "position": [440, 240]
+    },
+    {
+      "parameters": {
+        "url": "={{ $json.test_url }}",
+        "options": {
+          "timeout": 15000
+        }
+      },
+      "id": "connectivity_test",
+      "name": "Test - Connectivity",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.1,
+      "position": [640, 180]
+    },
+    {
+      "parameters": {
+        "functionCode": "// Validate connectivity test\nconst response = $input.first().json;\nconst testSuite = $input.last().json;\n\ntry {\n  // Check response\n  if (!response || typeof response !== 'string') {\n    throw new Error('Invalid response format');\n  }\n  \n  if (response.length < 1000) {\n    throw new Error('Response too short - possible error page');\n  }\n  \n  if (response.includes('404') || response.includes('Not Found')) {\n    throw new Error('404 error detected');\n  }\n  \n  if (response.includes('captcha') || response.includes('blocked')) {\n    throw new Error('Bot detection triggered');\n  }\n  \n  // Success\n  testSuite.tests.connectivity = {\n    status: 'passed',\n    details: {\n      response_size: response.length,\n      response_type: typeof response,\n      contains_html: response.includes('<html>'),\n      contains_scripts: response.includes('<script>')\n    }\n  };\n  \n  console.log('✅ Connectivity test passed');\n  \n} catch (error) {\n  testSuite.tests.connectivity = {\n    status: 'failed',\n    details: {\n      error: error.message,\n      response_received: !!response,\n      response_size: response ? response.length : 0\n    }\n  };\n  \n  console.error('❌ Connectivity test failed:', error.message);\n}\n\nreturn [{ json: { ...testSuite, html_content: response } }];"
+      },
+      "id": "validate_connectivity",
+      "name": "Validate Connectivity",
+      "type": "n8n-nodes-base.function",
+      "typeVersion": 1,
+      "position": [840, 180]
+    },
+    {
+      "parameters": {
+        "dataPropertyName": "html_content",
+        "extractionValues": {
+          "values": [
+            {
+              "key": "page_title",
+              "cssSelector": "title",
+              "returnValue": "text"
+            },
+            {
+              "key": "scan_info_table",
+              "cssSelector": "div.card-body table",
+              "returnValue": "html"
+            },
+            {
+              "key": "rank_summary_table",
+              "cssSelector": "div.card-body table:nth-of-type(2)",
+              "returnValue": "html"
+            },
+            {
+              "key": "competitors_table",
+              "cssSelector": "div.col-md-12 table",
+              "returnValue": "html"
+            },
+            {
+              "key": "all_scripts",
+              "cssSelector": "script",
+              "returnValue": "html"
+            },
+            {
+              "key": "meta_description",
+              "cssSelector": "meta[name='description']",
+              "returnValue": "attribute",
+              "attributeName": "content"
+            }
+          ]
+        }
+      },
+      "id": "test_html_extraction",
+      "name": "Test - HTML Extraction",
+      "type": "n8n-nodes-base.htmlExtract",
+      "typeVersion": 1,
+      "position": [640, 280]
+    },
+    {
+      "parameters": {
+        "functionCode": "// Validate HTML structure test\nconst extractedData = $input.first().json;\nconst testSuite = $input.last().json;\n\ntry {\n  const requiredElements = {\n    page_title: 'Page title',\n    scan_info_table: 'Scan information table',\n    rank_summary_table: 'Rank summary table',\n    competitors_table: 'Competitors table',\n    all_scripts: 'Script tags'\n  };\n  \n  const results = {};\n  const missing = [];\n  \n  for (const [key, description] of Object.entries(requiredElements)) {\n    const found = extractedData[key] && extractedData[key].length > 0;\n    results[key] = {\n      found: found,\n      size: found ? extractedData[key].length : 0,\n      description: description\n    };\n    \n    if (!found) {\n      missing.push(description);\n    }\n  }\n  \n  // Check if critical elements are present\n  const criticalMissing = missing.filter(item => \n    item.includes('table') || item.includes('Script')\n  );\n  \n  if (criticalMissing.length > 0) {\n    throw new Error(`Critical elements missing: ${criticalMissing.join(', ')}`);\n  }\n  \n  // Success\n  testSuite.tests.html_structure = {\n    status: 'passed',\n    details: {\n      elements_found: Object.keys(results).length,\n      missing_elements: missing,\n      element_details: results\n    }\n  };\n  \n  console.log('✅ HTML structure test passed');\n  \n} catch (error) {\n  testSuite.tests.html_structure = {\n    status: 'failed',\n    details: {\n      error: error.message,\n      extracted_keys: Object.keys(extractedData)\n    }\n  };\n  \n  console.error('❌ HTML structure test failed:', error.message);\n}\n\nreturn [{ json: { ...testSuite, extracted_html: extractedData } }];"
+      },
+      "id": "validate_html_structure",
+      "name": "Validate HTML Structure",
+      "type": "n8n-nodes-base.function",
+      "typeVersion": 1,
+      "position": [840, 280]
+    },
+    {
+      "parameters": {
+        "functionCode": "// Test JavaScript data extraction\nconst testData = $input.first().json;\nconst scriptsHtml = testData.extracted_html?.all_scripts;\n\ntry {\n  if (!scriptsHtml) {\n    throw new Error('No script tags found for testing');\n  }\n  \n  const cheerio = require('cheerio');\n  const $ = cheerio.load(scriptsHtml);\n  \n  let jsData = {\n    pinz: [],\n    scan_guid: null,\n    place_id: null\n  };\n  \n  let scriptsProcessed = 0;\n  let dataFound = false;\n  \n  $('script').each((i, script) => {\n    scriptsProcessed++;\n    const scriptText = $(script).html() || '';\n    \n    // Test pinz array extraction\n    const pinzMatch = scriptText.match(/var\\s+pinz\\s*=\\s*(\\[.*?\\]);/s);\n    if (pinzMatch) {\n      try {\n        jsData.pinz = JSON.parse(pinzMatch[1]);\n        dataFound = true;\n      } catch (e) {\n        console.log('Pinz parsing error:', e.message);\n      }\n    }\n    \n    // Test scan_guid extraction\n    const scanGuidMatch = scriptText.match(/scan_guid['\"]?\\s*[:=]\\s*['\"]([^'\"]+)['\"]/i);\n    if (scanGuidMatch) {\n      jsData.scan_guid = scanGuidMatch[1];\n      dataFound = true;\n    }\n    \n    // Test place_id extraction\n    const placeIdMatch = scriptText.match(/place_id['\"]?\\s*[:=]\\s*['\"]([^'\"]+)['\"]/i);\n    if (placeIdMatch) {\n      jsData.place_id = placeIdMatch[1];\n    }\n  });\n  \n  if (!dataFound) {\n    throw new Error('No JavaScript data found in any script tag');\n  }\n  \n  // Success\n  testData.tests.javascript_data = {\n    status: 'passed',\n    details: {\n      scripts_processed: scriptsProcessed,\n      pinz_count: jsData.pinz.length,\n      scan_guid_found: !!jsData.scan_guid,\n      place_id_found: !!jsData.place_id,\n      extracted_data: jsData\n    }\n  };\n  \n  console.log('✅ JavaScript data test passed');\n  \n} catch (error) {\n  testData.tests.javascript_data = {\n    status: 'failed',\n    details: {\n      error: error.message,\n      scripts_available: !!scriptsHtml\n    }\n  };\n  \n  console.error('❌ JavaScript data test failed:', error.message);\n}\n\nreturn [{ json: testData }];"
+      },
+      "id": "test_javascript_extraction",
+      "name": "Test - JavaScript Extraction",
+      "type": "n8n-nodes-base.function",
+      "typeVersion": 1,
+      "position": [1040, 240]
+    },
+    {
+      "parameters": {
+        "functionCode": "// Test API endpoints (if JavaScript data is available)\nconst testData = $input.first().json;\nconst jsTestResult = testData.tests.javascript_data;\n\nif (jsTestResult.status !== 'passed' || !jsTestResult.details.scan_guid_found) {\n  testData.tests.api_endpoints = {\n    status: 'skipped',\n    details: {\n      reason: 'JavaScript data test failed or scan_guid not found'\n    }\n  };\n  \n  console.log('⏭️ API endpoints test skipped');\n  return [{ json: testData }];\n}\n\ntry {\n  const jsData = jsTestResult.details.extracted_data;\n  const baseUrl = testData.test_url.match(/https?:\\/\\/[^/]+/)[0];\n  \n  // Prepare API test data\n  const apiTests = {\n    competitors_endpoint: {\n      url: `${baseUrl}/scans/get-competitors-list?scan_guid=${jsData.scan_guid}`,\n      expected_response: 'array or object with data property'\n    }\n  };\n  \n  testData.tests.api_endpoints = {\n    status: 'ready_for_testing',\n    details: {\n      base_url: baseUrl,\n      scan_guid: jsData.scan_guid,\n      endpoints_to_test: Object.keys(apiTests),\n      test_data: apiTests\n    }\n  };\n  \n  console.log('🔄 API endpoints ready for testing');\n  \n} catch (error) {\n  testData.tests.api_endpoints = {\n    status: 'failed',\n    details: {\n      error: error.message\n    }\n  };\n  \n  console.error('❌ API endpoints test preparation failed:', error.message);\n}\n\nreturn [{ json: testData }];"
+      },
+      "id": "prepare_api_test",
+      "name": "Prepare API Test",
+      "type": "n8n-nodes-base.function",
+      "typeVersion": 1,
+      "position": [1240, 240]
+    },
+    {
+      "parameters": {
+        "functionCode": "// Perform comprehensive data quality validation\nconst testData = $input.first().json;\n\ntry {\n  const quality = {\n    connectivity: testData.tests.connectivity.status === 'passed',\n    html_structure: testData.tests.html_structure.status === 'passed',\n    javascript_data: testData.tests.javascript_data.status === 'passed',\n    critical_data_available: false,\n    overall_score: 0\n  };\n  \n  // Check critical data availability\n  if (quality.html_structure && quality.javascript_data) {\n    const htmlDetails = testData.tests.html_structure.details;\n    const jsDetails = testData.tests.javascript_data.details;\n    \n    quality.critical_data_available = \n      htmlDetails.element_details.scan_info_table?.found &&\n      htmlDetails.element_details.competitors_table?.found &&\n      jsDetails.scan_guid_found &&\n      jsDetails.pinz_count > 0;\n  }\n  \n  // Calculate overall score\n  const scores = {\n    connectivity: quality.connectivity ? 25 : 0,\n    html_structure: quality.html_structure ? 25 : 0,\n    javascript_data: quality.javascript_data ? 25 : 0,\n    critical_data: quality.critical_data_available ? 25 : 0\n  };\n  \n  quality.overall_score = Object.values(scores).reduce((a, b) => a + b, 0);\n  \n  // Determine overall status\n  let overallStatus = 'failed';\n  if (quality.overall_score >= 90) {\n    overallStatus = 'excellent';\n  } else if (quality.overall_score >= 75) {\n    overallStatus = 'good';\n  } else if (quality.overall_score >= 50) {\n    overallStatus = 'acceptable';\n  }\n  \n  testData.tests.data_quality = {\n    status: 'completed',\n    details: {\n      quality_checks: quality,\n      score_breakdown: scores,\n      overall_score: quality.overall_score,\n      overall_status: overallStatus,\n      recommendations: getRecommendations(quality, testData.tests)\n    }\n  };\n  \n  testData.overall_status = overallStatus;\n  testData.completed_at = new Date().toISOString();\n  \n  console.log(`🎯 Data quality validation completed: ${overallStatus} (${quality.overall_score}%)`);\n  \n} catch (error) {\n  testData.tests.data_quality = {\n    status: 'failed',\n    details: {\n      error: error.message\n    }\n  };\n  \n  testData.overall_status = 'failed';\n  console.error('❌ Data quality validation failed:', error.message);\n}\n\nfunction getRecommendations(quality, tests) {\n  const recommendations = [];\n  \n  if (!quality.connectivity) {\n    recommendations.push('Check network connectivity and URL accessibility');\n  }\n  \n  if (!quality.html_structure) {\n    recommendations.push('Update CSS selectors - page structure may have changed');\n  }\n  \n  if (!quality.javascript_data) {\n    recommendations.push('Update JavaScript regex patterns - script structure may have changed');\n  }\n  \n  if (!quality.critical_data_available) {\n    recommendations.push('Critical data missing - verify site functionality manually');\n  }\n  \n  if (tests.api_endpoints?.status === 'failed') {\n    recommendations.push('Check API endpoints and authentication requirements');\n  }\n  \n  if (recommendations.length === 0) {\n    recommendations.push('All tests passed - scraper is ready for production use');\n  }\n  \n  return recommendations;\n}\n\nreturn [{ json: testData }];"
+      },
+      "id": "validate_data_quality",
+      "name": "Validate Data Quality",
+      "type": "n8n-nodes-base.function",
+      "typeVersion": 1,
+      "position": [1440, 240]
+    },
+    {
+      "parameters": {
+        "functionCode": "// Generate comprehensive test report\nconst testData = $input.first().json;\n\nconst report = {\n  test_summary: {\n    test_id: testData.test_id,\n    started_at: testData.started_at,\n    completed_at: testData.completed_at,\n    duration_ms: new Date(testData.completed_at) - new Date(testData.started_at),\n    overall_status: testData.overall_status,\n    overall_score: testData.tests.data_quality.details?.overall_score || 0\n  },\n  \n  test_results: {\n    connectivity: {\n      status: testData.tests.connectivity.status,\n      details: testData.tests.connectivity.details\n    },\n    html_structure: {\n      status: testData.tests.html_structure.status,\n      details: testData.tests.html_structure.details\n    },\n    javascript_data: {\n      status: testData.tests.javascript_data.status,\n      details: testData.tests.javascript_data.details\n    },\n    api_endpoints: {\n      status: testData.tests.api_endpoints.status,\n      details: testData.tests.api_endpoints.details\n    },\n    data_quality: {\n      status: testData.tests.data_quality.status,\n      details: testData.tests.data_quality.details\n    }\n  },\n  \n  recommendations: testData.tests.data_quality.details?.recommendations || [],\n  \n  production_readiness: {\n    ready: testData.overall_status === 'excellent' || testData.overall_status === 'good',\n    confidence_level: testData.overall_status,\n    required_actions: testData.tests.data_quality.details?.recommendations?.filter(r => \n      r.includes('Check') || r.includes('Update')\n    ) || []\n  }\n};\n\n// Log results\nconsole.log('\\n🧪 TEST REPORT SUMMARY');\nconsole.log('========================');\nconsole.log(`Overall Status: ${report.test_summary.overall_status.toUpperCase()}`);\nconsole.log(`Score: ${report.test_summary.overall_score}%`);\nconsole.log(`Duration: ${report.test_summary.duration_ms}ms`);\nconsole.log(`Production Ready: ${report.production_readiness.ready ? 'YES' : 'NO'}`);\n\nif (report.recommendations.length > 0) {\n  console.log('\\nRecommendations:');\n  report.recommendations.forEach((rec, i) => {\n    console.log(`${i + 1}. ${rec}`);\n  });\n}\n\nreturn [{ json: report }];"
+      },
+      "id": "generate_test_report",
+      "name": "Generate Test Report",
+      "type": "n8n-nodes-base.function",
+      "typeVersion": 1,
+      "position": [1640, 240]
+    },
+    {
+      "parameters": {
+        "operation": "write",
+        "fileName": "={{ 'validation_report_' + $now.format('YYYY-MM-DD_HH-mm-ss') + '.json' }}",
+        "fileContent": "={{ JSON.stringify($json, null, 2) }}",
+        "options": {}
+      },
+      "id": "save_test_report",
+      "name": "Save Test Report",
+      "type": "n8n-nodes-base.readWriteFile",
+      "typeVersion": 1,
+      "position": [1840, 180]
+    },
+    {
+      "parameters": {
+        "functionCode": "// Create human-readable summary\nconst report = $input.first().json;\n\nconst summary = `\n# 🧪 Local Rank Report Scraper - Validation Report\n\n## 📊 Test Summary\n- **Test ID:** ${report.test_summary.test_id}\n- **Overall Status:** ${report.test_summary.overall_status.toUpperCase()}\n- **Score:** ${report.test_summary.overall_score}%\n- **Duration:** ${report.test_summary.duration_ms}ms\n- **Production Ready:** ${report.production_readiness.ready ? '✅ YES' : '❌ NO'}\n\n## 🔍 Test Results\n\n### Connectivity Test\n- **Status:** ${report.test_results.connectivity.status === 'passed' ? '✅ PASSED' : '❌ FAILED'}\n- **Response Size:** ${report.test_results.connectivity.details?.response_size || 'N/A'} bytes\n\n### HTML Structure Test\n- **Status:** ${report.test_results.html_structure.status === 'passed' ? '✅ PASSED' : '❌ FAILED'}\n- **Elements Found:** ${report.test_results.html_structure.details?.elements_found || 0}\n\n### JavaScript Data Test\n- **Status:** ${report.test_results.javascript_data.status === 'passed' ? '✅ PASSED' : '❌ FAILED'}\n- **Pinz Count:** ${report.test_results.javascript_data.details?.pinz_count || 0}\n- **Scan GUID Found:** ${report.test_results.javascript_data.details?.scan_guid_found ? 'Yes' : 'No'}\n\n### API Endpoints Test\n- **Status:** ${report.test_results.api_endpoints.status || 'Not tested'}\n\n## 💡 Recommendations\n\n${report.recommendations.map((rec, i) => `${i + 1}. ${rec}`).join('\\n')}\n\n## 🎯 Next Steps\n\n${report.production_readiness.ready ? \n  'The scraper is ready for production use. You can proceed with confidence.' : \n  'Please address the recommendations above before using in production.'}\n\n---\n*Generated on ${new Date().toISOString()}*\n`;\n\nreturn [{ json: { summary: summary } }];"
+      },
+      "id": "create_summary",
+      "name": "Create Human-Readable Summary",
+      "type": "n8n-nodes-base.function",
+      "typeVersion": 1,
+      "position": [1840, 280]
+    },
+    {
+      "parameters": {
+        "operation": "write",
+        "fileName": "={{ 'validation_summary_' + $now.format('YYYY-MM-DD_HH-mm-ss') + '.md' }}",
+        "fileContent": "={{ $json.summary }}",
+        "options": {}
+      },
+      "id": "save_summary",
+      "name": "Save Summary",
+      "type": "n8n-nodes-base.readWriteFile",
+      "typeVersion": 1,
+      "position": [1840, 380]
+    }
+  ],
+  "connections": {
+    "Test Configuration": {
+      "main": [
+        [
+          {
+            "node": "Initialize Test Suite",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Initialize Test Suite": {
+      "main": [
+        [
+          {
+            "node": "Test - Connectivity",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Test - HTML Extraction",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Test - Connectivity": {
+      "main": [
+        [
+          {
+            "node": "Validate Connectivity",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Test - HTML Extraction": {
+      "main": [
+        [
+          {
+            "node": "Validate HTML Structure",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Validate Connectivity": {
+      "main": [
+        [
+          {
+            "node": "Test - JavaScript Extraction",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Validate HTML Structure": {
+      "main": [
+        [
+          {
+            "node": "Test - JavaScript Extraction",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Test - JavaScript Extraction": {
+      "main": [
+        [
+          {
+            "node": "Prepare API Test",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Prepare API Test": {
+      "main": [
+        [
+          {
+            "node": "Validate Data Quality",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Validate Data Quality": {
+      "main": [
+        [
+          {
+            "node": "Generate Test Report",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Generate Test Report": {
+      "main": [
+        [
+          {
+            "node": "Save Test Report",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Create Human-Readable Summary",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Create Human-Readable Summary": {
+      "main": [
+        [
+          {
+            "node": "Save Summary",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "pinData": {},
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "staticData": null,
+  "tags": ["validation", "testing", "scraper"],
+  "triggerCount": 0,
+  "updatedAt": "2024-01-20T13:30:00.000Z",
+  "versionId": "1"
+}
