@@ -429,6 +429,137 @@
         500
       ],
       "notes": "Rate limiting - etik scraping"
+    },
+
+    {
+      "parameters": {
+        "operation": "append",
+        "documentId": "={{ $json.google_sheets_id || 'YOUR_GOOGLE_SHEETS_ID' }}",
+        "sheetName": "Rakipler",
+        "dataMode": "autoMapInputData",
+        "options": {}
+      },
+      "id": "google-sheets-competitors-001",
+      "name": "Google Sheets - Rakipler",
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4,
+      "position": [
+        2480,
+        360
+      ],
+      "notes": "Rakip verilerini Google Sheets'e yaz"
+    },
+    {
+      "parameters": {
+        "operation": "clear",
+        "documentId": "={{ $json.google_sheets_id || 'YOUR_GOOGLE_SHEETS_ID' }}",
+        "sheetName": "Sponsorlu Listeler",
+        "options": {}
+      },
+      "id": "google-sheets-clear-sponsored-001",
+      "name": "Google Sheets - Clear Sponsored",
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4,
+      "position": [
+        2260,
+        480
+      ],
+      "notes": "Sponsorlu listeler sayfasını temizle"
+    },
+    {
+      "parameters": {
+        "operation": "append",
+        "documentId": "={{ $json.google_sheets_id || 'YOUR_GOOGLE_SHEETS_ID' }}",
+        "sheetName": "Sponsorlu Listeler",
+        "dataMode": "autoMapInputData",
+        "options": {}
+      },
+      "id": "google-sheets-sponsored-001",
+      "name": "Google Sheets - Sponsorlu Listeler",
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4,
+      "position": [
+        2480,
+        480
+      ],
+      "notes": "Sponsorlu liste verilerini Google Sheets'e yaz"
+    },
+    {
+      "parameters": {
+        "operation": "clear",
+        "documentId": "={{ $json.google_sheets_id || 'YOUR_GOOGLE_SHEETS_ID' }}",
+        "sheetName": "Harita Verileri",
+        "options": {}
+      },
+      "id": "google-sheets-clear-map-001",
+      "name": "Google Sheets - Clear Map Data",
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4,
+      "position": [
+        2260,
+        600
+      ],
+      "notes": "Harita verileri sayfasını temizle"
+    },
+    {
+      "parameters": {
+        "operation": "append",
+        "documentId": "={{ $json.google_sheets_id || 'YOUR_GOOGLE_SHEETS_ID' }}",
+        "sheetName": "Harita Verileri",
+        "dataMode": "autoMapInputData",
+        "options": {}
+      },
+      "id": "google-sheets-map-data-001",
+      "name": "Google Sheets - Harita Verileri",
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4,
+      "position": [
+        2480,
+        600
+      ],
+      "notes": "Harita verilerini Google Sheets'e yaz"
+    },
+    {
+      "parameters": {
+        "functionCode": "// Rakipler verisini dizi formatına çevir\nconst data = items[0].json;\n\nif (data.rakipler && Array.isArray(data.rakipler) && data.rakipler.length > 0) {\n  return data.rakipler.map(rakip => ({ json: rakip }));\n}\n\nreturn [];"
+      },
+      "id": "function-split-competitors-001",
+      "name": "Function - Split Competitors",
+      "type": "n8n-nodes-base.function",
+      "typeVersion": 1,
+      "position": [
+        2040,
+        360
+      ],
+      "notes": "Rakipler verisini her satır için ayrı item'a böl"
+    },
+    {
+      "parameters": {
+        "functionCode": "// Sponsorlu listeler verisini dizi formatına çevir\nconst data = items[0].json;\n\nif (data.sponsorlu_listeler && Array.isArray(data.sponsorlu_listeler) && data.sponsorlu_listeler.length > 0) {\n  return data.sponsorlu_listeler.map(sponsor => ({ json: sponsor }));\n}\n\nreturn [];"
+      },
+      "id": "function-split-sponsored-001",
+      "name": "Function - Split Sponsored",
+      "type": "n8n-nodes-base.function",
+      "typeVersion": 1,
+      "position": [
+        2040,
+        480
+      ],
+      "notes": "Sponsorlu liste verisini her satır için ayrı item'a böl"
+    },
+    {
+      "parameters": {
+        "functionCode": "// Harita verileri için dizi formatına çevir\nconst data = items[0].json;\n\nif (data.harita_verileri && Array.isArray(data.harita_verileri) && data.harita_verileri.length > 0) {\n  return data.harita_verileri.map(harita => ({ json: harita }));\n}\n\nreturn [];"
+      },
+      "id": "function-split-map-data-001",
+      "name": "Function - Split Map Data",
+      "type": "n8n-nodes-base.function",
+      "typeVersion": 1,
+      "position": [
+        2040,
+        600
+      ],
+      "notes": "Harita verisini her satır için ayrı item'a böl"
     }
   ],
   "connections": {
@@ -621,7 +752,8 @@
           }
         ]
       ]
-    }
+    },
+
   },
   "pinData": {},
   "settings": {
