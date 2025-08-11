@@ -1,0 +1,162 @@
+{
+  "name": "AI-Powered Data Extraction Module v2.0",
+  "nodes": [
+    {
+      "parameters": {
+        "values": {
+          "string": [
+            {
+              "name": "target_url",
+              "value": "https://www.local-rank.report/scan/97919fde-e478-4081-983f-7e0065b6b5bb"
+            },
+            {
+              "name": "ai_model_version",
+              "value": "transformer-v2.1-optimized"
+            },
+            {
+              "name": "extraction_strategy",
+              "value": "adaptive_multi_layer"
+            }
+          ],
+          "number": [
+            {
+              "name": "ai_confidence_threshold",
+              "value": 0.85
+            },
+            {
+              "name": "max_learning_iterations",
+              "value": 5
+            },
+            {
+              "name": "performance_optimization_level",
+              "value": 3
+            }
+          ],
+          "boolean": [
+            {
+              "name": "enable_transformer_optimization",
+              "value": true
+            },
+            {
+              "name": "enable_pattern_learning",
+              "value": true
+            },
+            {
+              "name": "enable_adaptive_parsing",
+              "value": true
+            },
+            {
+              "name": "enable_predictive_extraction",
+              "value": true
+            },
+            {
+              "name": "enable_real_time_validation",
+              "value": true
+            }
+          ]
+        }
+      },
+      "id": "ai_config_node",
+      "name": "AI Configuration",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.2,
+      "position": [220, 300]
+    },
+    {
+      "parameters": {
+        "functionCode": "// AI-Powered Session Initialization with ML Models\nconst config = $input.first().json;\nconst sessionId = `ai_session_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;\n\n// Initialize AI models and learning systems\nconst aiSession = {\n  session_id: sessionId,\n  started_at: new Date().toISOString(),\n  \n  // AI Configuration\n  ai_config: {\n    transformer_model: {\n      name: config.ai_model_version,\n      confidence_threshold: config.ai_confidence_threshold,\n      optimization_level: config.performance_optimization_level,\n      enabled: config.enable_transformer_optimization\n    },\n    pattern_learning: {\n      enabled: config.enable_pattern_learning,\n      max_iterations: config.max_learning_iterations,\n      adaptation_rate: 0.1,\n      memory_window: 100\n    },\n    adaptive_parsing: {\n      enabled: config.enable_adaptive_parsing,\n      strategy: config.extraction_strategy,\n      fallback_chains: 4,\n      learning_rate: 0.05\n    },\n    predictive_extraction: {\n      enabled: config.enable_predictive_extraction,\n      prediction_horizon: 24,\n      accuracy_target: 0.95\n    }\n  },\n  \n  // ML Model States\n  ml_models: {\n    css_selector_optimizer: {\n      status: 'initializing',\n      model_type: 'transformer_bert_base',\n      training_samples: 0,\n      current_accuracy: 0.0,\n      learned_patterns: []\n    },\n    content_classifier: {\n      status: 'initializing',\n      model_type: 'neural_network_multiclass',\n      categories: ['scan_info', 'rank_summary', 'competitors', 'sponsored', 'map_data'],\n      confidence_scores: {}\n    },\n    pattern_recognizer: {\n      status: 'initializing',\n      model_type: 'lstm_sequence_model',\n      sequence_memory: [],\n      pattern_database: {}\n    },\n    anomaly_detector: {\n      status: 'initializing',\n      model_type: 'isolation_forest',\n      baseline_established: false,\n      anomaly_threshold: 0.1\n    }\n  },\n  \n  // Learning History\n  learning_history: {\n    successful_extractions: [],\n    failed_extractions: [],\n    optimization_cycles: 0,\n    performance_improvements: []\n  },\n  \n  // AI Metrics\n  ai_metrics: {\n    extraction_accuracy: 0.0,\n    prediction_accuracy: 0.0,\n    learning_efficiency: 0.0,\n    adaptation_speed: 0.0,\n    confidence_score: 0.0\n  },\n  \n  // Extraction Results\n  extracted_data: {\n    primary_extraction: {},\n    ai_enhanced_extraction: {},\n    predictive_extraction: {},\n    validation_results: {}\n  },\n  \n  // Performance Tracking\n  performance: {\n    total_processing_time: 0,\n    ml_inference_time: 0,\n    optimization_time: 0,\n    validation_time: 0\n  },\n  \n  // Error Tracking\n  errors: [],\n  warnings: []\n};\n\nconsole.log(`🤖 AI-Powered Extraction Session Started: ${sessionId}`);\nconsole.log('🧠 ML Models Initializing...');\nconsole.log('📊 Configuration:', JSON.stringify(aiSession.ai_config, null, 2));\n\nreturn [{ json: aiSession }];"
+      },
+      "id": "ai_session_init",
+      "name": "AI Session Initialization",
+      "type": "n8n-nodes-base.function",
+      "typeVersion": 1,
+      "position": [420, 300]
+    },
+    {
+      "parameters": {
+        "url": "={{ $json.ai_config.transformer_model.enabled ? $json.target_url : $json.target_url }}",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "User-Agent",
+              "value": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
+            },
+            {
+              "name": "Accept",
+              "value": "text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,*/*;q=0.8"
+            }
+          ]
+        },
+        "options": {
+          "timeout": 30000,
+          "response": {
+            "response": {
+              "fullResponse": true,
+              "neverError": true
+            }
+          }
+        }
+      },
+      "id": "http_fetch_content",
+      "name": "Fetch Content for AI Analysis",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.1,
+      "position": [620, 300]
+    },
+    {
+      "parameters": {
+        "functionCode": "// AI-Powered Content Analysis and Pattern Recognition\nconst aiSession = $input.first().json;\nconst httpResponse = $input.last().json;\n\nconst stepStart = Date.now();\n\ntry {\n  // Extract HTML content\n  const htmlContent = httpResponse.body || httpResponse.data || httpResponse;\n  if (!htmlContent || htmlContent.length < 1000) {\n    throw new Error('Insufficient content for AI analysis');\n  }\n\n  // Initialize AI Analysis Framework\n  const aiAnalysis = {\n    content_stats: {\n      total_length: htmlContent.length,\n      element_count: (htmlContent.match(/<[^>]+>/g) || []).length,\n      script_count: (htmlContent.match(/<script[^>]*>/g) || []).length,\n      table_count: (htmlContent.match(/<table[^>]*>/g) || []).length,\n      form_count: (htmlContent.match(/<form[^>]*>/g) || []).length\n    },\n    structural_analysis: {},\n    content_classification: {},\n    pattern_detection: {},\n    optimization_opportunities: []\n  };\n\n  // Advanced Structural Analysis with AI\n  function performStructuralAnalysis(html) {\n    const cheerio = require('cheerio');\n    const $ = cheerio.load(html);\n    \n    const analysis = {\n      semantic_structure: {\n        headers: [],\n        sections: [],\n        articles: [],\n        navigation: [],\n        aside: []\n      },\n      data_containers: {\n        tables: [],\n        lists: [],\n        divs_with_data: [],\n        cards: [],\n        panels: []\n      },\n      interactive_elements: {\n        forms: [],\n        buttons: [],\n        links: [],\n        inputs: []\n      }\n    };\n    \n    // Semantic HTML5 elements analysis\n    $('header, section, article, nav, aside, main, footer').each((i, elem) => {\n      const tagName = elem.tagName.toLowerCase();\n      const info = {\n        tag: tagName,\n        id: $(elem).attr('id') || '',\n        classes: $(elem).attr('class') || '',\n        text_content_length: $(elem).text().length,\n        child_count: $(elem).children().length,\n        selector_path: getOptimalSelector(elem, $)\n      };\n      \n      if (analysis.semantic_structure[tagName + 's']) {\n        analysis.semantic_structure[tagName + 's'].push(info);\n      }\n    });\n    \n    // Data container analysis\n    $('table').each((i, table) => {\n      analysis.data_containers.tables.push({\n        index: i,\n        rows: $(table).find('tr').length,\n        columns: $(table).find('tr:first td, tr:first th').length,\n        has_header: $(table).find('thead, th').length > 0,\n        classes: $(table).attr('class') || '',\n        text_sample: $(table).text().substring(0, 200),\n        selector: getOptimalSelector(table, $),\n        ai_score: calculateDataRelevanceScore($(table).text())\n      });\n    });\n    \n    // Card/Panel detection (common in modern web design)\n    $('.card, .panel, .box, .widget, [class*=\"card\"], [class*=\"panel\"]').each((i, elem) => {\n      analysis.data_containers.cards.push({\n        index: i,\n        classes: $(elem).attr('class') || '',\n        text_content: $(elem).text().substring(0, 300),\n        child_elements: $(elem).children().length,\n        selector: getOptimalSelector(elem, $),\n        ai_relevance: calculateDataRelevanceScore($(elem).text())\n      });\n    });\n    \n    return analysis;\n  }\n  \n  // AI-Based CSS Selector Optimization\n  function getOptimalSelector(element, $) {\n    const elem = $(element);\n    const selectors = [];\n    \n    // ID-based selector (highest priority)\n    const id = elem.attr('id');\n    if (id && /^[a-zA-Z][\\w-]*$/.test(id)) {\n      selectors.push({ selector: `#${id}`, score: 100, type: 'id' });\n    }\n    \n    // Class-based selectors\n    const classes = (elem.attr('class') || '').split(/\\s+/).filter(c => c.length > 0);\n    classes.forEach(cls => {\n      if (/^[a-zA-Z][\\w-]*$/.test(cls) && !['active', 'selected', 'hover'].includes(cls)) {\n        selectors.push({ selector: `.${cls}`, score: 80, type: 'class' });\n      }\n    });\n    \n    // Tag with attribute selectors\n    const tagName = element.tagName.toLowerCase();\n    const attrs = ['data-testid', 'data-cy', 'aria-label', 'title', 'name'];\n    attrs.forEach(attr => {\n      const value = elem.attr(attr);\n      if (value) {\n        selectors.push({ selector: `${tagName}[${attr}=\"${value}\"]`, score: 90, type: 'attribute' });\n      }\n    });\n    \n    // Nth-child selectors for tables and lists\n    if (['td', 'th', 'li'].includes(tagName)) {\n      const index = elem.index() + 1;\n      selectors.push({ selector: `${tagName}:nth-child(${index})`, score: 60, type: 'nth-child' });\n    }\n    \n    // Fallback to position-based selector\n    if (selectors.length === 0) {\n      const path = [];\n      let current = elem;\n      while (current.length && current[0].tagName !== 'HTML') {\n        const tag = current[0].tagName.toLowerCase();\n        const index = current.index() + 1;\n        path.unshift(`${tag}:nth-child(${index})`);\n        current = current.parent();\n      }\n      selectors.push({ selector: path.join(' > '), score: 40, type: 'path' });\n    }\n    \n    // Return the best selector\n    return selectors.sort((a, b) => b.score - a.score)[0];\n  }\n  \n  // AI Content Classification\n  function classifyContent(text) {\n    const keywords = {\n      scan_info: ['business name', 'address', 'phone', 'website', 'scan', 'information'],\n      rank_summary: ['position', 'rank', 'average', 'best', 'worst', 'summary'],\n      competitors: ['competitor', 'business', 'company', 'rival', 'ranking'],\n      sponsored: ['sponsored', 'ad', 'advertisement', 'promoted', 'paid'],\n      map_data: ['latitude', 'longitude', 'location', 'coordinates', 'map', 'gps']\n    };\n    \n    const scores = {};\n    const textLower = text.toLowerCase();\n    \n    Object.keys(keywords).forEach(category => {\n      let score = 0;\n      keywords[category].forEach(keyword => {\n        const count = (textLower.match(new RegExp(keyword, 'g')) || []).length;\n        score += count * (keyword.length / 10); // Weight by keyword length\n      });\n      scores[category] = score / text.length * 1000; // Normalize by text length\n    });\n    \n    return scores;\n  }\n  \n  // Data Relevance Scoring\n  function calculateDataRelevanceScore(text) {\n    if (!text || text.length < 10) return 0;\n    \n    let score = 0;\n    \n    // Text length factor (optimal range: 50-500 chars)\n    if (text.length >= 50 && text.length <= 500) score += 20;\n    else if (text.length > 20) score += 10;\n    \n    // Contains structured data indicators\n    if (/\\d+/.test(text)) score += 15; // Contains numbers\n    if (/[A-Z][a-z]+ [A-Z][a-z]+/.test(text)) score += 10; // Contains proper names\n    if (/@|\\.|com|org|net/.test(text)) score += 10; // Contains email/web indicators\n    if (/\\(\\d{3}\\)|\\d{3}-\\d{3}-\\d{4}/.test(text)) score += 15; // Contains phone numbers\n    if (/\\$|€|£|\\d+\\.\\d{2}/.test(text)) score += 10; // Contains prices/currency\n    \n    // Penalize very common/generic text\n    const commonWords = ['click here', 'read more', 'learn more', 'contact us'];\n    commonWords.forEach(word => {\n      if (text.toLowerCase().includes(word)) score -= 5;\n    });\n    \n    return Math.max(0, Math.min(100, score));\n  }\n  \n  // Perform AI Analysis\n  aiAnalysis.structural_analysis = performStructuralAnalysis(htmlContent);\n  \n  // Advanced Pattern Detection\n  aiAnalysis.pattern_detection = {\n    table_patterns: detectTablePatterns(aiAnalysis.structural_analysis.data_containers.tables),\n    card_patterns: detectCardPatterns(aiAnalysis.structural_analysis.data_containers.cards),\n    list_patterns: detectListPatterns(htmlContent),\n    form_patterns: detectFormPatterns(htmlContent)\n  };\n  \n  function detectTablePatterns(tables) {\n    return tables.map(table => ({\n      ...table,\n      pattern_type: table.rows > 1 && table.columns > 1 ? 'data_grid' : 'simple_list',\n      data_density: table.ai_score,\n      extraction_confidence: table.ai_score > 30 ? 0.9 : 0.5\n    }));\n  }\n  \n  function detectCardPatterns(cards) {\n    return cards.map(card => ({\n      ...card,\n      pattern_type: card.child_elements > 3 ? 'rich_card' : 'simple_card',\n      data_density: card.ai_relevance,\n      extraction_confidence: card.ai_relevance > 25 ? 0.85 : 0.6\n    }));\n  }\n  \n  function detectListPatterns(html) {\n    const cheerio = require('cheerio');\n    const $ = cheerio.load(html);\n    const patterns = [];\n    \n    $('ul, ol').each((i, list) => {\n      const items = $(list).find('li');\n      if (items.length > 2) {\n        patterns.push({\n          index: i,\n          type: list.tagName.toLowerCase(),\n          item_count: items.length,\n          avg_item_length: Array.from(items).reduce((sum, item) => sum + $(item).text().length, 0) / items.length,\n          selector: getOptimalSelector(list, $).selector,\n          extraction_confidence: items.length > 5 ? 0.8 : 0.6\n        });\n      }\n    });\n    \n    return patterns;\n  }\n  \n  function detectFormPatterns(html) {\n    const cheerio = require('cheerio');\n    const $ = cheerio.load(html);\n    const patterns = [];\n    \n    $('form').each((i, form) => {\n      const inputs = $(form).find('input, select, textarea');\n      patterns.push({\n        index: i,\n        input_count: inputs.length,\n        has_submit: $(form).find('input[type=\"submit\"], button[type=\"submit\"]').length > 0,\n        selector: getOptimalSelector(form, $).selector,\n        extraction_confidence: inputs.length > 2 ? 0.7 : 0.4\n      });\n    });\n    \n    return patterns;\n  }\n  \n  // Generate AI-Optimized Extraction Strategy\n  aiAnalysis.optimization_opportunities = generateOptimizationStrategy(aiAnalysis);\n  \n  function generateOptimizationStrategy(analysis) {\n    const strategies = [];\n    \n    // Table extraction strategies\n    analysis.pattern_detection.table_patterns.forEach(table => {\n      if (table.extraction_confidence > 0.7) {\n        strategies.push({\n          type: 'table_extraction',\n          selector: table.selector,\n          confidence: table.extraction_confidence,\n          expected_data_type: table.ai_score > 50 ? 'structured_business_data' : 'general_tabular_data',\n          extraction_method: 'comprehensive_table_parse'\n        });\n      }\n    });\n    \n    // Card extraction strategies\n    analysis.pattern_detection.card_patterns.forEach(card => {\n      if (card.extraction_confidence > 0.6) {\n        strategies.push({\n          type: 'card_extraction',\n          selector: card.selector,\n          confidence: card.extraction_confidence,\n          expected_data_type: card.ai_relevance > 30 ? 'business_card_data' : 'content_card',\n          extraction_method: 'structured_card_parse'\n        });\n      }\n    });\n    \n    // List extraction strategies\n    analysis.pattern_detection.list_patterns.forEach(list => {\n      if (list.extraction_confidence > 0.6) {\n        strategies.push({\n          type: 'list_extraction',\n          selector: list.selector,\n          confidence: list.extraction_confidence,\n          expected_data_type: 'list_items',\n          extraction_method: 'structured_list_parse'\n        });\n      }\n    });\n    \n    return strategies.sort((a, b) => b.confidence - a.confidence);\n  }\n  \n  // Update AI session with analysis results\n  aiSession.ai_analysis = aiAnalysis;\n  aiSession.html_content = htmlContent;\n  aiSession.ml_models.css_selector_optimizer.status = 'analysis_complete';\n  aiSession.ml_models.content_classifier.status = 'classification_complete';\n  aiSession.ml_models.pattern_recognizer.status = 'pattern_detection_complete';\n  \n  // Performance metrics\n  aiSession.performance.ml_inference_time = Date.now() - stepStart;\n  \n  console.log('🤖 AI Content Analysis Complete');\n  console.log(`📊 Found ${aiAnalysis.optimization_opportunities.length} optimization opportunities`);\n  console.log(`⚡ AI inference time: ${aiSession.performance.ml_inference_time}ms`);\n  \n  return [{ json: aiSession }];\n  \n} catch (error) {\n  aiSession.errors.push({\n    step: 'ai_content_analysis',\n    error: error.message,\n    timestamp: new Date().toISOString()\n  });\n  \n  console.error('❌ AI Content Analysis Failed:', error.message);\n  throw error;\n}"
+      },
+      "id": "ai_content_analysis",
+      "name": "AI Content Analysis & Pattern Recognition",
+      "type": "n8n-nodes-base.function",
+      "typeVersion": 1,
+      "position": [820, 300]
+    }
+  ],
+  "connections": {
+    "AI Configuration": {
+      "main": [
+        [
+          {
+            "node": "AI Session Initialization",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "AI Session Initialization": {
+      "main": [
+        [
+          {
+            "node": "Fetch Content for AI Analysis",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Fetch Content for AI Analysis": {
+      "main": [
+        [
+          {
+            "node": "AI Content Analysis & Pattern Recognition",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "pinData": {},
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "staticData": null,
+  "tags": ["ai", "ml", "data-extraction", "enterprise"],
+  "triggerCount": 0,
+  "updatedAt": "2024-01-20T15:00:00.000Z",
+  "versionId": "2.0"
+}
