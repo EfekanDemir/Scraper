@@ -1,0 +1,261 @@
+{
+  "active": false,
+  "createdAt": "2024-01-20T16:00:00.000Z",
+  "id": "advanced_data_extraction_module",
+  "name": "Advanced Data Extraction Module",
+  "nodes": [
+    {
+      "parameters": {
+        "values": {
+          "string": [
+            {
+              "name": "target_url", 
+              "value": "https://example.com/scan-results"
+            },
+            {
+              "name": "extraction_strategy",
+              "value": "comprehensive"
+            },
+            {
+              "name": "output_format",
+              "value": "excel_multi_sheet"
+            },
+            {
+              "name": "confidence_threshold",
+              "value": "0.7"
+            },
+            {
+              "name": "timeout_seconds",
+              "value": "30"
+            },
+            {
+              "name": "retry_attempts",
+              "value": "3"
+            }
+          ],
+          "boolean": [
+            {
+              "name": "enable_detailed_extraction",
+              "value": true
+            },
+            {
+              "name": "enable_js_extraction", 
+              "value": true
+            },
+            {
+              "name": "enable_validation",
+              "value": true
+            },
+            {
+              "name": "enable_api_scraping",
+              "value": true
+            }
+          ]
+        }
+      },
+      "id": "extraction_config",
+      "name": "Extraction Configuration",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3,
+      "position": [200, 300]
+    },
+    {
+      "parameters": {
+        "functionCode": "// Session Initialization with 7 Excel Sheet Structure\nconst config = $input.first().json;\n\nconst session = {\n  session_id: `session_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,\n  started_at: new Date().toISOString(),\n  config: config,\n  target_url: config.target_url,\n  steps: {},\n  errors: [],\n  warnings: [],\n  metrics: {},\n  \n  // Initialize result structure matching Python project's 7 Excel sheets\n  results: {\n    ozet_bilgiler: [],\n    rakipler: [],\n    sponsorlu_listeler: [],\n    detayli_sonuclar: [],\n    harita_verileri: [],\n    javascript_verileri: [],\n    api_verileri: []\n  }\n};\n\nsession.steps.initialization = { status: 'completed', timestamp: new Date().toISOString() };\n\nconsole.log('🚀 Session initialized with ID:', session.session_id);\nconsole.log('📊 Excel sheets structure ready:', Object.keys(session.results));\n\nreturn [{ json: session }];"
+      },
+      "id": "session_init",
+      "name": "Session Initialization",
+      "type": "n8n-nodes-base.function",
+      "typeVersion": 1,
+      "position": [400, 300]
+    },
+    {
+      "parameters": {
+        "url": "={{ $node['Extraction Configuration'].json.target_url }}",
+        "options": {
+          "timeout": "={{ parseInt($node['Extraction Configuration'].json.timeout_seconds) * 1000 }}",
+          "redirect": {
+            "followRedirects": true,
+            "maxRedirects": 5
+          },
+          "retry": {
+            "enabled": true,
+            "maxRetries": "={{ parseInt($node['Extraction Configuration'].json.retry_attempts) }}"
+          }
+        },
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "User-Agent",
+              "value": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36"
+            },
+            {
+              "name": "Accept",
+              "value": "text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8"
+            },
+            {
+              "name": "Accept-Language",
+              "value": "en-US,en;q=0.5"
+            },
+            {
+              "name": "Accept-Encoding",
+              "value": "gzip, deflate, br"
+            },
+            {
+              "name": "Connection",
+              "value": "keep-alive"
+            },
+            {
+              "name": "Upgrade-Insecure-Requests",
+              "value": "1"
+            }
+          ]
+        }
+      },
+      "id": "fetch_content",
+      "name": "Fetch HTML Content",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4,
+      "position": [600, 300]
+    },
+    {
+      "parameters": {
+        "functionCode": "// Advanced HTML Content Analysis and Pattern Recognition\nconst session = $input.first().json;\nconst httpResponse = $input.last().json;\n\nconst stepStart = Date.now();\n\ntry {\n  // Ensure session properties exist\n  session.steps = session.steps || {};\n  session.errors = session.errors || [];\n  session.metrics = session.metrics || {};\n  \n  // Update step status\n  session.steps.html_fetch = { status: 'completed', timestamp: new Date().toISOString() };\n  session.steps.content_analysis = { status: 'in_progress', timestamp: new Date().toISOString() };\n  \n  // Extract HTML content with error handling\n  let htmlContent = '';\n  if (httpResponse && httpResponse.body) {\n    htmlContent = httpResponse.body;\n  } else if (httpResponse && httpResponse.data) {\n    htmlContent = httpResponse.data;\n  } else if (typeof httpResponse === 'string') {\n    htmlContent = httpResponse;\n  } else {\n    throw new Error('No HTML content found in response');\n  }\n\n  if (!htmlContent || htmlContent.length < 500) {\n    throw new Error(`Insufficient content for analysis: ${htmlContent.length} characters`);\n  }\n\n  console.log(`📊 HTML Content Size: ${htmlContent.length} characters`);\n\n  // Content Statistics\n  const contentStats = {\n    total_length: htmlContent.length,\n    element_count: (htmlContent.match(/<[^>]+>/g) || []).length,\n    script_count: (htmlContent.match(/<script[^>]*>/gi) || []).length,\n    table_count: (htmlContent.match(/<table[^>]*>/gi) || []).length,\n    form_count: (htmlContent.match(/<form[^>]*>/gi) || []).length,\n    div_count: (htmlContent.match(/<div[^>]*>/gi) || []).length,\n    link_count: (htmlContent.match(/<a[^>]*>/gi) || []).length\n  };\n\n  // Store HTML content for next step\n  session.html_content = htmlContent;\n  session.content_stats = contentStats;\n  session.steps.content_analysis = { status: 'completed', timestamp: new Date().toISOString() };\n  session.metrics.processing_time = Date.now() - stepStart;\n\n  console.log('✅ Content Analysis Complete');\n  console.log(`📊 Statistics:`, contentStats);\n  console.log(`⚡ Processing time: ${session.metrics.processing_time}ms`);\n\n  return [{ json: session }];\n\n} catch (error) {\n  // Ensure session.errors exists\n  if (!session.errors) session.errors = [];\n  \n  session.errors.push({\n    step: 'content_analysis',\n    error: error.message,\n    timestamp: new Date().toISOString()\n  });\n  \n  console.error('❌ Content Analysis Failed:', error.message);\n  throw error;\n}"
+      },
+      "id": "content_analysis",
+      "name": "Content Analysis & Pattern Recognition",
+      "type": "n8n-nodes-base.function",
+      "typeVersion": 1,
+      "position": [800, 300]
+    },
+    {
+      "parameters": {
+        "functionCode": "// Specialized HTML Data Extraction\nconst session = $input.first().json;\nconst stepStart = Date.now();\n\ntry {\n  const htmlContent = session.html_content;\n  if (!htmlContent) {\n    throw new Error('No HTML content available for extraction');\n  }\n  \n  session.steps.html_extraction = { status: 'in_progress', timestamp: new Date().toISOString() };\n  \n  const extractedData = {\n    summary_table: null,\n    rank_table: null,\n    competitors_table: null,\n    sponsored_listings: null,\n    map_data: null,\n    all_scripts: null,\n    hidden_inputs: []\n  };\n  \n  // Extract scan summary information table\n  const summaryTableRegex = /<table[^>]*class=\"[^\"]*summary[^\"]*\"[^>]*>.*?<\\/table>|<table[^>]*>(?=.*?(?:Tarama|Scan|Özet|Summary)).*?<\\/table>/gis;\n  const summaryMatch = htmlContent.match(summaryTableRegex);\n  if (summaryMatch) {\n    extractedData.summary_table = summaryMatch[0];\n    console.log('📋 Found summary table');\n  }\n  \n  // Extract rank summary table\n  const rankTableRegex = /<table[^>]*class=\"[^\"]*rank[^\"]*\"[^>]*>.*?<\\/table>|<table[^>]*>(?=.*?(?:Sıralama|Rank|Position)).*?<\\/table>/gis;\n  const rankMatch = htmlContent.match(rankTableRegex);\n  if (rankMatch) {\n    extractedData.rank_table = rankMatch[0];\n    console.log('🏆 Found rank table');\n  }\n  \n  // Extract competitors table\n  const competitorsRegex = /<table[^>]*class=\"[^\"]*competitor[^\"]*\"[^>]*>.*?<\\/table>|<table[^>]*>(?=.*?(?:Rakip|Competitor|Business)).*?<\\/table>/gis;\n  const competitorsMatch = htmlContent.match(competitorsRegex);\n  if (competitorsMatch) {\n    extractedData.competitors_table = competitorsMatch[0];\n    console.log('🏢 Found competitors table');\n  }\n  \n  // Extract all tables as fallback\n  const allTablesRegex = /<table[^>]*>.*?<\\/table>/gis;\n  const allTablesMatches = htmlContent.match(allTablesRegex) || [];\n  if (allTablesMatches.length > 0) {\n    extractedData.all_tables = allTablesMatches;\n    console.log(`📊 Found ${allTablesMatches.length} total tables`);\n  }\n  \n  // Extract sponsored listings sections\n  const sponsoredRegex = /<div[^>]*class=\"[^\"]*sponsor[^\"]*\"[^>]*>.*?<\\/div>|<section[^>]*class=\"[^\"]*sponsor[^\"]*\"[^>]*>.*?<\\/section>/gis;\n  const sponsoredMatches = htmlContent.match(sponsoredRegex);\n  if (sponsoredMatches) {\n    extractedData.sponsored_listings = sponsoredMatches;\n    console.log(`📢 Found ${sponsoredMatches.length} sponsored sections`);\n  }\n  \n  // Extract all script tags\n  const scriptsRegex = /<script[^>]*>.*?<\\/script>/gis;\n  const scriptMatches = htmlContent.match(scriptsRegex);\n  if (scriptMatches) {\n    extractedData.all_scripts = scriptMatches.join('\\n');\n    console.log(`📜 Found ${scriptMatches.length} script tags`);\n  }\n  \n  // Extract hidden input fields for dynamic data\n  const hiddenInputRegex = /<input[^>]*type=[\"']hidden[\"'][^>]*>/gi;\n  const hiddenInputMatches = htmlContent.match(hiddenInputRegex) || [];\n  hiddenInputMatches.forEach(input => {\n    const nameMatch = input.match(/name=[\"']([^\"']*)[\"']/);\n    const valueMatch = input.match(/value=[\"']([^\"']*)[\"']/);\n    if (nameMatch && valueMatch) {\n      extractedData.hidden_inputs.push({\n        name: nameMatch[1],\n        value: valueMatch[1]\n      });\n    }\n  });\n  \n  if (extractedData.hidden_inputs.length > 0) {\n    console.log(`🔍 Found ${extractedData.hidden_inputs.length} hidden inputs`);\n  }\n  \n  // Store extracted data in session\n  session.extracted_html = extractedData;\n  session.steps.html_extraction = { status: 'completed', timestamp: new Date().toISOString() };\n  \n  console.log('✅ HTML Data Extraction Complete');\n  console.log(`⚡ Processing time: ${Date.now() - stepStart}ms`);\n  \n  return [{ json: session }];\n  \n} catch (error) {\n  session.errors.push({\n    step: 'html_extraction',\n    error: error.message,\n    timestamp: new Date().toISOString()\n  });\n  \n  console.error('❌ HTML Extraction Failed:', error.message);\n  throw error;\n}"
+      },
+      "id": "html_extraction",
+      "name": "HTML Data Extraction",
+      "type": "n8n-nodes-base.function",
+      "typeVersion": 1,
+      "position": [1000, 300]
+    },
+    {
+      "parameters": {
+        "functionCode": "// Advanced Data Processing & Assembly with Proper HTML Parsing\nconst session = $input.first().json;\nconst stepStart = Date.now();\n\ntry {\n  console.log('🔄 Starting Advanced Data Processing...');\n  \n  session.steps.data_processing = { status: 'in_progress', timestamp: new Date().toISOString() };\n  \n  const extractedHtml = session.extracted_html;\n  const htmlContent = session.html_content;\n  \n  // Enhanced Table Processing Function for specific HTML structures\n  function processSpecificTable(tableHtml, tableType) {\n    if (!tableHtml) return [];\n    \n    const results = [];\n    \n    try {\n      // Remove extra whitespace and normalize HTML\n      const cleanHtml = tableHtml.replace(/\\s+/g, ' ').trim();\n      \n      // Extract table rows with improved regex\n      const rowRegex = /<tr[^>]*>(.*?)<\\/tr>/gis;\n      const rowMatches = cleanHtml.match(rowRegex) || [];\n      \n      console.log(`📊 Processing ${tableType} table with ${rowMatches.length} rows`);\n      \n      rowMatches.forEach((rowHtml, rowIndex) => {\n        // Extract cells with better handling of th and td\n        const cellRegex = /<t[hd][^>]*>(.*?)<\\/t[hd]>/gis;\n        const cellMatches = rowHtml.match(cellRegex) || [];\n        \n        if (cellMatches.length >= 1) {\n          const rowData = {};\n          let hasData = false;\n          \n          cellMatches.forEach((cellHtml, cellIndex) => {\n            // Clean cell text more thoroughly\n            let cellText = cellHtml\n              .replace(/<t[hd][^>]*>|<\\/t[hd]>/gi, '')\n              .replace(/<[^>]*>/g, '')\n              .replace(/&nbsp;/g, ' ')\n              .replace(/&amp;/g, '&')\n              .replace(/&lt;/g, '<')\n              .replace(/&gt;/g, '>')\n              .replace(/&quot;/g, '\"')\n              .trim();\n            \n            if (cellText && cellText.length > 0 && cellText !== '-' && cellText !== '—') {\n              // Smart column detection based on content and position\n              let columnName = `column_${cellIndex}`;\n              \n              // Enhanced pattern matching for Turkish content\n              if (cellText.toLowerCase().includes('işletme') || cellText.toLowerCase().includes('name') || cellText.toLowerCase().includes('ad')) {\n                columnName = 'business_name';\n              } else if (cellText.toLowerCase().includes('adres') || cellText.toLowerCase().includes('address') || cellText.toLowerCase().includes('konum')) {\n                columnName = 'address';\n              } else if (cellText.toLowerCase().includes('telefon') || cellText.toLowerCase().includes('phone') || /\\(?\\d{3}\\)?[-.\\s]?\\d{3}[-.\\s]?\\d{4}/.test(cellText)) {\n                columnName = 'phone';\n              } else if (cellText.toLowerCase().includes('website') || cellText.includes('www.') || cellText.includes('http')) {\n                columnName = 'website';\n              } else if (cellText.toLowerCase().includes('sıra') || cellText.toLowerCase().includes('rank') || cellText.toLowerCase().includes('position')) {\n                columnName = 'rank';\n              } else if (cellText.toLowerCase().includes('puan') || cellText.toLowerCase().includes('score')) {\n                columnName = 'score';\n              } else if (cellText.toLowerCase().includes('kategori') || cellText.toLowerCase().includes('category')) {\n                columnName = 'category';\n              } else if (cellText.toLowerCase().includes('mesafe') || cellText.toLowerCase().includes('distance')) {\n                columnName = 'distance';\n              }\n              \n              // Handle numeric data\n              if (/^#?\\d+$/.test(cellText)) {\n                rowData[columnName] = parseInt(cellText.replace('#', ''));\n              } else {\n                rowData[columnName] = cellText;\n              }\n              \n              hasData = true;\n            }\n          });\n          \n          if (hasData && Object.keys(rowData).length > 0) {\n            results.push({\n              row_index: rowIndex,\n              data: rowData,\n              is_header: rowIndex === 0,\n              cell_count: cellMatches.length\n            });\n          }\n        }\n      });\n      \n    } catch (e) {\n      console.warn(`Error processing ${tableType} table:`, e.message);\n    }\n    \n    return results;\n  }\n  \n  // Enhanced JavaScript Data Extraction\n  function extractJavaScriptData(scriptContent) {\n    const jsData = {\n      scan_guid: null,\n      place_id: null,\n      keyword_id: null,\n      keyword_guid: null,\n      pinz: [],\n      api_endpoints: [],\n      config_data: {},\n      dynamic_urls: []\n    };\n    \n    if (!scriptContent) return jsData;\n    \n    try {\n      // Extract scan_guid with multiple patterns\n      const scanGuidPatterns = [\n        /scan_guid[\"']?\\s*[:=]\\s*[\"']([^\"']+)[\"']/gi,\n        /[\"']scan_guid[\"']\\s*[:=]\\s*[\"']([^\"']+)[\"']/gi,\n        /scanGuid[\"']?\\s*[:=]\\s*[\"']([^\"']+)[\"']/gi\n      ];\n      \n      scanGuidPatterns.forEach(pattern => {\n        const match = scriptContent.match(pattern);\n        if (match && !jsData.scan_guid) {\n          jsData.scan_guid = match[0].match(/[\"']([^\"']+)[\"']/)[1];\n        }\n      });\n      \n      // Extract place_id with multiple patterns\n      const placeIdPatterns = [\n        /place_id[\"']?\\s*[:=]\\s*[\"']([^\"']+)[\"']/gi,\n        /[\"']place_id[\"']\\s*[:=]\\s*[\"']([^\"']+)[\"']/gi,\n        /placeId[\"']?\\s*[:=]\\s*[\"']([^\"']+)[\"']/gi\n      ];\n      \n      placeIdPatterns.forEach(pattern => {\n        const match = scriptContent.match(pattern);\n        if (match && !jsData.place_id) {\n          jsData.place_id = match[0].match(/[\"']([^\"']+)[\"']/)[1];\n        }\n      });\n      \n      // Extract keyword_id and keyword_guid\n      const keywordIdMatch = scriptContent.match(/keyword_id[\"']?\\s*[:=]\\s*[\"']([^\"']+)[\"']/gi);\n      if (keywordIdMatch) {\n        jsData.keyword_id = keywordIdMatch[0].match(/[\"']([^\"']+)[\"']/)[1];\n      }\n      \n      const keywordGuidMatch = scriptContent.match(/keyword_guid[\"']?\\s*[:=]\\s*[\"']([^\"']+)[\"']/gi);\n      if (keywordGuidMatch) {\n        jsData.keyword_guid = keywordGuidMatch[0].match(/[\"']([^\"']+)[\"']/)[1];\n      }\n      \n      // Extract pinz array with better error handling\n      const pinzPatterns = [\n        /var\\s+pinz\\s*=\\s*(\\[.*?\\]);/gs,\n        /pinz\\s*=\\s*(\\[.*?\\]);/gs,\n        /[\"']pinz[\"']\\s*:\\s*(\\[.*?\\])/gs\n      ];\n      \n      pinzPatterns.forEach(pattern => {\n        const matches = scriptContent.match(pattern);\n        if (matches && jsData.pinz.length === 0) {\n          matches.forEach(match => {\n            try {\n              const arrayMatch = match.match(/\\[.*?\\]/s);\n              if (arrayMatch) {\n                const pinzArray = JSON.parse(arrayMatch[0]);\n                if (Array.isArray(pinzArray) && pinzArray.length > 0) {\n                  jsData.pinz = pinzArray;\n                }\n              }\n            } catch (e) {\n              console.warn('Failed to parse pinz array:', e.message);\n            }\n          });\n        }\n      });\n      \n      // Extract API endpoints with comprehensive patterns\n      const apiPatterns = [\n        /[\"']([^\"']*\\/api\\/[^\"']*)[\"']/gi,\n        /[\"']([^\"']*\\/analytics\\/[^\"']*)[\"']/gi,\n        /[\"']([^\"']*\\/competitors[^\"']*)[\"']/gi,\n        /[\"']([^\"']*\\/scans\\/[^\"']*)[\"']/gi,\n        /[\"']([^\"']*\\/data[^\"']*)[\"']/gi,\n        /[\"']([^\"']*\\/search[^\"']*)[\"']/gi,\n        /[\"']([^\"']*\\/reports?[^\"']*)[\"']/gi,\n        /[\"']([^\"']*\\/export[^\"']*)[\"']/gi,\n        /url\\s*:\\s*[\"']([^\"']+)[\"']/gi,\n        /endpoint\\s*:\\s*[\"']([^\"']+)[\"']/gi\n      ];\n      \n      apiPatterns.forEach(pattern => {\n        const matches = scriptContent.match(pattern) || [];\n        matches.forEach(match => {\n          const urlMatch = match.match(/[\"']([^\"']+)[\"']/);\n          if (urlMatch) {\n            const url = urlMatch[1];\n            if (url && url.length > 5 && !jsData.api_endpoints.includes(url)) {\n              // Filter out non-API URLs\n              if (url.includes('/api/') || url.includes('/data/') || url.includes('/analytics/') ||\n                  url.includes('/scan') || url.includes('/report') || url.includes('/export')) {\n                jsData.api_endpoints.push(url);\n              }\n            }\n          }\n        });\n      });\n      \n      // Extract configuration data\n      const configPatterns = [\n        /config\\s*[:=]\\s*(\\{[^}]+\\})/gi,\n        /settings\\s*[:=]\\s*(\\{[^}]+\\})/gi,\n        /options\\s*[:=]\\s*(\\{[^}]+\\})/gi\n      ];\n      \n      configPatterns.forEach(pattern => {\n        const matches = scriptContent.match(pattern);\n        if (matches) {\n          matches.forEach(match => {\n            try {\n              const objMatch = match.match(/\\{[^}]+\\}/);\n              if (objMatch) {\n                const configObj = JSON.parse(objMatch[0]);\n                Object.assign(jsData.config_data, configObj);\n              }\n            } catch (e) {\n              console.warn('Failed to parse config data:', e.message);\n            }\n          });\n        }\n      });\n      \n    } catch (e) {\n      console.warn('Error in JavaScript extraction:', e.message);\n    }\n    \n    return jsData;\n  }\n  \n  // Process extracted data into the 7 Excel sheet categories\n  \n  // 1. ozet_bilgiler (Summary Information)\n  if (extractedHtml.summary_table || (extractedHtml.all_tables && extractedHtml.all_tables.length > 0)) {\n    const summaryTable = extractedHtml.summary_table || extractedHtml.all_tables[0];\n    const summaryRows = processSpecificTable(summaryTable, 'summary');\n    \n    summaryRows.forEach(row => {\n      if (!row.is_header && Object.keys(row.data).length > 0) {\n        session.results.ozet_bilgiler.push(row.data);\n      }\n    });\n    \n    console.log(`📋 Processed ${session.results.ozet_bilgiler.length} summary information entries`);\n  }\n  \n  // 2. rakipler (Competitors)\n  if (extractedHtml.competitors_table) {\n    const competitorRows = processSpecificTable(extractedHtml.competitors_table, 'competitors');\n    \n    competitorRows.forEach(row => {\n      if (!row.is_header && Object.keys(row.data).length > 1) {\n        session.results.rakipler.push({\n          rank: row.data.rank || row.row_index,\n          business_name: row.data.business_name || row.data.column_0 || 'Unknown',\n          address: row.data.address || row.data.column_1 || '',\n          phone: row.data.phone || '',\n          website: row.data.website || '',\n          score: row.data.score || '',\n          category: row.data.category || '',\n          distance: row.data.distance || '',\n          ...row.data\n        });\n      }\n    });\n    \n    console.log(`🏢 Processed ${session.results.rakipler.length} competitor entries`);\n  }\n  \n  // Process all tables for competitors if specific table not found\n  if (session.results.rakipler.length === 0 && extractedHtml.all_tables) {\n    extractedHtml.all_tables.forEach((table, tableIndex) => {\n      const tableRows = processSpecificTable(table, `table_${tableIndex}`);\n      \n      tableRows.forEach(row => {\n        if (!row.is_header && Object.keys(row.data).length > 1) {\n          const rowText = JSON.stringify(row.data).toLowerCase();\n          \n          // Check if this looks like competitor data\n          if (rowText.includes('business') || rowText.includes('company') ||\n              rowText.includes('name') || rowText.includes('address') ||\n              rowText.includes('phone') || Object.keys(row.data).length >= 3) {\n            session.results.rakipler.push({\n              rank: row.data.rank || row.row_index,\n              business_name: row.data.business_name || Object.values(row.data)[0] || 'Unknown',\n              table_source: tableIndex,\n              ...row.data\n            });\n          }\n        }\n      });\n    });\n    \n    console.log(`🏢 Processed ${session.results.rakipler.length} competitor entries from all tables`);\n  }\n  \n  // 3. sponsorlu_listeler (Sponsored Listings)\n  if (extractedHtml.sponsored_listings) {\n    extractedHtml.sponsored_listings.forEach((sponsoredHtml, index) => {\n      const sponsoredText = sponsoredHtml.replace(/<[^>]*>/g, '').trim();\n      if (sponsoredText.length > 10) {\n        session.results.sponsorlu_listeler.push({\n          index: index + 1,\n          content: sponsoredText,\n          html_snippet: sponsoredHtml.substring(0, 200) + '...'\n        });\n      }\n    });\n    \n    console.log(`📢 Processed ${session.results.sponsorlu_listeler.length} sponsored listings`);\n  }\n  \n  // 4. detayli_sonuclar (Detailed Results)\n  // Combine data from multiple sources for detailed results\n  if (extractedHtml.all_tables) {\n    extractedHtml.all_tables.forEach((table, tableIndex) => {\n      const tableRows = processSpecificTable(table, `detailed_${tableIndex}`);\n      \n      tableRows.forEach(row => {\n        if (!row.is_header && Object.keys(row.data).length >= 2) {\n          session.results.detayli_sonuclar.push({\n            table_index: tableIndex,\n            row_index: row.row_index,\n            data_fields: Object.keys(row.data).length,\n            ...row.data\n          });\n        }\n      });\n    });\n    \n    console.log(`📊 Processed ${session.results.detayli_sonuclar.length} detailed result entries`);\n  }\n  \n  // 5. harita_verileri (Map Data)\n  // Extract map-related data from HTML and hidden inputs\n  if (extractedHtml.hidden_inputs) {\n    extractedHtml.hidden_inputs.forEach(input => {\n      if (input.name.toLowerCase().includes('lat') || input.name.toLowerCase().includes('lng') ||\n          input.name.toLowerCase().includes('coord') || input.name.toLowerCase().includes('location') ||\n          input.name.toLowerCase().includes('place') || input.name.toLowerCase().includes('map')) {\n        session.results.harita_verileri.push({\n          field_name: input.name,\n          field_value: input.value,\n          data_type: 'hidden_input'\n        });\n      }\n    });\n    \n    console.log(`🗺️ Processed ${session.results.harita_verileri.length} map data entries`);\n  }\n  \n  // 6. javascript_verileri (JavaScript Data)\n  if (extractedHtml.all_scripts) {\n    const jsData = extractJavaScriptData(extractedHtml.all_scripts);\n    \n    // Store extracted JavaScript variables\n    if (jsData.scan_guid) {\n      session.results.javascript_verileri.push({\n        variable: 'scan_guid',\n        value: jsData.scan_guid,\n        data_type: 'string'\n      });\n    }\n    \n    if (jsData.place_id) {\n      session.results.javascript_verileri.push({\n        variable: 'place_id',\n        value: jsData.place_id,\n        data_type: 'string'\n      });\n    }\n    \n    if (jsData.keyword_id) {\n      session.results.javascript_verileri.push({\n        variable: 'keyword_id',\n        value: jsData.keyword_id,\n        data_type: 'string'\n      });\n    }\n    \n    if (jsData.keyword_guid) {\n      session.results.javascript_verileri.push({\n        variable: 'keyword_guid',\n        value: jsData.keyword_guid,\n        data_type: 'string'\n      });\n    }\n    \n    if (jsData.pinz && jsData.pinz.length > 0) {\n      session.results.javascript_verileri.push({\n        variable: 'pinz',\n        value: JSON.stringify(jsData.pinz),\n        data_type: 'array',\n        length: jsData.pinz.length\n      });\n    }\n    \n    // Store API endpoints for scraping\n    if (jsData.api_endpoints && jsData.api_endpoints.length > 0) {\n      jsData.api_endpoints.forEach((endpoint, index) => {\n        session.results.javascript_verileri.push({\n          variable: `api_endpoint_${index + 1}`,\n          value: endpoint,\n          data_type: 'url'\n        });\n      });\n    }\n    \n    // Store extracted JavaScript data for API scraping\n    session.js_extracted_data = jsData;\n    \n    console.log(`📜 Processed ${session.results.javascript_verileri.length} JavaScript data entries`);\n  }\n  \n  // 7. api_verileri (API Data) - Initialize for next step\n  session.results.api_verileri = [];\n  \n  // Calculate data quality metrics\n  const totalExtracted = Object.values(session.results).reduce((sum, arr) => sum + arr.length, 0);\n  const qualityScore = Math.min(100, totalExtracted * 2);\n  \n  session.steps.data_processing = { status: 'completed', timestamp: new Date().toISOString() };\n  session.metrics.total_extracted = totalExtracted;\n  session.metrics.quality_score = qualityScore;\n  session.metrics.processing_time = Date.now() - stepStart;\n  \n  console.log('✅ Advanced Data Processing Complete!');\n  console.log(`📊 Data Summary:`);\n  console.log(`  • ozet_bilgiler: ${session.results.ozet_bilgiler.length} entries`);\n  console.log(`  • rakipler: ${session.results.rakipler.length} entries`);\n  console.log(`  • sponsorlu_listeler: ${session.results.sponsorlu_listeler.length} entries`);\n  console.log(`  • detayli_sonuclar: ${session.results.detayli_sonuclar.length} entries`);\n  console.log(`  • harita_verileri: ${session.results.harita_verileri.length} entries`);\n  console.log(`  • javascript_verileri: ${session.results.javascript_verileri.length} entries`);\n  console.log(`📈 Quality Score: ${qualityScore}/100`);\n  console.log(`⚡ Processing time: ${session.metrics.processing_time}ms`);\n  \n  return [{ json: session }];\n  \n} catch (error) {\n  session.errors.push({\n    step: 'data_processing',\n    error: error.message,\n    timestamp: new Date().toISOString()\n  });\n  \n  console.error('❌ Data Processing Failed:', error.message);\n  throw error;\n}"
+      },
+      "id": "data_processing",
+      "name": "Data Processing & Assembly",
+      "type": "n8n-nodes-base.function",
+      "typeVersion": 1,
+      "position": [1200, 300]
+    },
+    {
+      "parameters": {
+        "functionCode": "// Dynamic API Endpoint Scraping\nconst session = $input.first().json;\nconst stepStart = Date.now();\n\ntry {\n  console.log('🚀 Starting Dynamic API Scraping...');\n  \n  session.steps.api_scraping = { status: 'in_progress', timestamp: new Date().toISOString() };\n  \n  const jsData = session.js_extracted_data;\n  const apiEndpoints = jsData?.api_endpoints || [];\n  \n  if (apiEndpoints.length === 0) {\n    console.log('⚠️ No API endpoints found to scrape');\n    session.results.api_verileri.push({\n      message: 'No API endpoints found',\n      timestamp: new Date().toISOString()\n    });\n    \n    session.steps.api_scraping = { status: 'completed', timestamp: new Date().toISOString() };\n    return [{ json: session }];\n  }\n  \n  console.log(`🎯 Found ${apiEndpoints.length} API endpoints to scrape`);\n  \n  // Build API requests with dynamic parameters\n  const apiRequests = [];\n  const baseParams = {\n    scan_guid: jsData.scan_guid,\n    place_id: jsData.place_id,\n    keyword_id: jsData.keyword_id,\n    keyword_guid: jsData.keyword_guid\n  };\n  \n  apiEndpoints.forEach((endpoint, index) => {\n    // Construct full URL if relative\n    let fullUrl = endpoint;\n    if (endpoint.startsWith('/')) {\n      const baseUrl = session.target_url.split('/').slice(0, 3).join('/');\n      fullUrl = baseUrl + endpoint;\n    }\n    \n    // Add dynamic parameters\n    const urlObj = new URL(fullUrl);\n    Object.entries(baseParams).forEach(([key, value]) => {\n      if (value) {\n        urlObj.searchParams.set(key, value);\n      }\n    });\n    \n    apiRequests.push({\n      endpoint_index: index + 1,\n      original_endpoint: endpoint,\n      full_url: urlObj.toString(),\n      method: 'GET',\n      params: baseParams\n    });\n  });\n  \n  // Store API request information\n  session.api_requests = apiRequests;\n  \n  // Log API endpoints for user information\n  apiRequests.forEach((request, index) => {\n    session.results.api_verileri.push({\n      endpoint_index: request.endpoint_index,\n      endpoint_url: request.original_endpoint,\n      full_request_url: request.full_url,\n      method: request.method,\n      scan_guid: baseParams.scan_guid,\n      place_id: baseParams.place_id,\n      keyword_id: baseParams.keyword_id,\n      keyword_guid: baseParams.keyword_guid,\n      status: 'prepared',\n      timestamp: new Date().toISOString()\n    });\n  });\n  \n  session.steps.api_scraping = { status: 'completed', timestamp: new Date().toISOString() };\n  \n  console.log('✅ API Endpoint Preparation Complete!');\n  console.log(`🎯 Prepared ${apiRequests.length} API requests`);\n  console.log(`📊 Total API data entries: ${session.results.api_verileri.length}`);\n  \n  return [{ json: session }];\n  \n} catch (error) {\n  session.errors.push({\n    step: 'api_scraping',\n    error: error.message,\n    timestamp: new Date().toISOString()\n  });\n  \n  console.error('❌ API Scraping Failed:', error.message);\n  throw error;\n}"
+      },
+      "id": "api_scraping",
+      "name": "Dynamic API Scraping",
+      "type": "n8n-nodes-base.function",
+      "typeVersion": 1,
+      "position": [1400, 300]
+    },
+    {
+      "parameters": {
+        "functionCode": "// Excel Multi-Sheet Export Preparation\nconst session = $input.first().json;\nconst stepStart = Date.now();\n\ntry {\n  console.log('📊 Preparing Excel Multi-Sheet Export...');\n  \n  session.steps.excel_export = { status: 'in_progress', timestamp: new Date().toISOString() };\n  \n  const results = session.results;\n  \n  // Function to convert data to CSV format for each sheet\n  function convertToCSV(data, sheetName) {\n    if (!data || data.length === 0) {\n      return `message\\nNo ${sheetName} found`;\n    }\n    \n    // Get all unique keys from all objects\n    const allKeys = [...new Set(data.flatMap(Object.keys))];\n    \n    // Create header row\n    const csvRows = [allKeys.join(',')];\n    \n    // Create data rows\n    data.forEach(item => {\n      const row = allKeys.map(key => {\n        const value = item[key] || '';\n        // Escape commas and quotes in CSV\n        const stringValue = String(value);\n        if (stringValue.includes(',') || stringValue.includes('\"') || stringValue.includes('\\n')) {\n          return `\"${stringValue.replace(/\"/g, '\"\"')}\"`;\n        }\n        return stringValue;\n      });\n      csvRows.push(row.join(','));\n    });\n    \n    return csvRows.join('\\n');\n  }\n  \n  // Prepare data for each of the 7 Excel sheets\n  const excelSheets = {\n    ozet_bilgiler: {\n      name: 'Summary Information',\n      data: results.ozet_bilgiler,\n      csv: convertToCSV(results.ozet_bilgiler, 'summary information')\n    },\n    rakipler: {\n      name: 'Competitors',\n      data: results.rakipler,\n      csv: convertToCSV(results.rakipler, 'competitors')\n    },\n    sponsorlu_listeler: {\n      name: 'Sponsored Listings',\n      data: results.sponsorlu_listeler,\n      csv: convertToCSV(results.sponsorlu_listeler, 'sponsored listings')\n    },\n    detayli_sonuclar: {\n      name: 'Detailed Results',\n      data: results.detayli_sonuclar,\n      csv: convertToCSV(results.detayli_sonuclar, 'detailed results')\n    },\n    harita_verileri: {\n      name: 'Map Data',\n      data: results.harita_verileri,\n      csv: convertToCSV(results.harita_verileri, 'map data')\n    },\n    javascript_verileri: {\n      name: 'JavaScript Data',\n      data: results.javascript_verileri,\n      csv: convertToCSV(results.javascript_verileri, 'JavaScript data')\n    },\n    api_verileri: {\n      name: 'API Data',\n      data: results.api_verileri,\n      csv: convertToCSV(results.api_verileri, 'API data')\n    }\n  };\n  \n  // Generate summary report\n  const summaryReport = {\n    extraction_summary: {\n      session_id: session.session_id,\n      extracted_at: new Date().toISOString(),\n      target_url: session.target_url,\n      total_processing_time: Date.now() - new Date(session.started_at).getTime(),\n      quality_score: session.metrics.quality_score || 0,\n      total_data_points: Object.values(results).reduce((sum, arr) => sum + arr.length, 0)\n    },\n    sheet_summary: Object.entries(excelSheets).map(([key, sheet]) => ({\n      sheet_name: key,\n      display_name: sheet.name,\n      record_count: sheet.data.length,\n      has_data: sheet.data.length > 0\n    })),\n    errors: session.errors,\n    warnings: session.warnings || []\n  };\n  \n  // Store export data in session\n  session.excel_export = {\n    sheets: excelSheets,\n    summary: summaryReport,\n    ready_for_download: true\n  };\n  \n  session.steps.excel_export = { status: 'completed', timestamp: new Date().toISOString() };\n  \n  console.log('✅ Excel Export Preparation Complete!');\n  console.log('📊 Export Summary:');\n  Object.entries(excelSheets).forEach(([key, sheet]) => {\n    console.log(`  • ${key}: ${sheet.data.length} records`);\n  });\n  \n  console.log(`📈 Overall Quality Score: ${summaryReport.extraction_summary.quality_score}/100`);\n  console.log(`⚡ Total Processing Time: ${summaryReport.extraction_summary.total_processing_time}ms`);\n  \n  // Output current data counts for user\n  const outputSummary = {\n    ozet_bilgiler: results.ozet_bilgiler.length,\n    rakipler: results.rakipler.length,\n    sponsorlu_listeler: results.sponsorlu_listeler.length,\n    detayli_sonuclar: results.detayli_sonuclar.length,\n    harita_verileri: results.harita_verileri.length,\n    javascript_verileri: results.javascript_verileri.length,\n    api_verileri: results.api_verileri.length,\n    message: `Extraction completed with ${summaryReport.extraction_summary.total_data_points} total data points`,\n    quality_score: summaryReport.extraction_summary.quality_score,\n    session_id: session.session_id\n  };\n  \n  return [{ json: { session: session, output_summary: outputSummary } }];\n  \n} catch (error) {\n  session.errors.push({\n    step: 'excel_export',\n    error: error.message,\n    timestamp: new Date().toISOString()\n  });\n  \n  console.error('❌ Excel Export Preparation Failed:', error.message);\n  throw error;\n}"
+      },
+      "id": "excel_export",
+      "name": "Excel Multi-Sheet Export",
+      "type": "n8n-nodes-base.function",
+      "typeVersion": 1,
+      "position": [1600, 300]
+    }
+  ],
+  "connections": {
+    "Extraction Configuration": {
+      "main": [
+        [
+          {
+            "node": "Session Initialization",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Session Initialization": {
+      "main": [
+        [
+          {
+            "node": "Fetch HTML Content",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Fetch HTML Content": {
+      "main": [
+        [
+          {
+            "node": "Content Analysis & Pattern Recognition",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Content Analysis & Pattern Recognition": {
+      "main": [
+        [
+          {
+            "node": "HTML Data Extraction",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "HTML Data Extraction": {
+      "main": [
+        [
+          {
+            "node": "Data Processing & Assembly",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Data Processing & Assembly": {
+      "main": [
+        [
+          {
+            "node": "Dynamic API Scraping",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Dynamic API Scraping": {
+      "main": [
+        [
+          {
+            "node": "Excel Multi-Sheet Export",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "pinData": {},
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "staticData": null,
+  "tags": ["advanced", "data-extraction", "api-scraping", "excel-export", "production-ready"],
+  "triggerCount": 0,
+  "updatedAt": "2024-01-20T16:30:00.000Z",
+  "versionId": "3.0"
+}
