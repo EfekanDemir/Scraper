@@ -2,13 +2,29 @@
   "name": "Modular Web Scraper - Local Rank Report",
   "nodes": [
     {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "scraper-webhook",
+        "options": {}
+      },
+      "id": "webhook-trigger-001",
+      "name": "Webhook",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 1,
+      "position": [
+        60,
+        300
+      ],
+      "webhookId": "a1b2c3d4-e5f6-7890-abcd-ef1234567890"
+    },
+    {
       "parameters": {},
       "id": "af6c2e3c-3b4c-4d5e-8f9a-1b2c3d4e5f6g",
       "name": "Start",
       "type": "n8n-nodes-base.start",
       "typeVersion": 1,
       "position": [
-        240,
+        280,
         300
       ]
     },
@@ -46,7 +62,7 @@
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.1,
       "position": [
-        460,
+        500,
         300
       ],
       "notes": "web_client.py modülü - HTML içeriğini alır"
@@ -62,7 +78,7 @@
       "type": "n8n-nodes-base.merge",
       "typeVersion": 2.1,
       "position": [
-        680,
+        720,
         300
       ]
     },
@@ -75,7 +91,7 @@
       "type": "n8n-nodes-base.function",
       "typeVersion": 1,
       "position": [
-        900,
+        940,
         300
       ],
       "notes": "js_extractor.py modülü - JavaScript verilerini çıkarır"
@@ -100,7 +116,7 @@
       "type": "n8n-nodes-base.htmlExtract",
       "typeVersion": 1,
       "position": [
-        1120,
+        1160,
         200
       ],
       "notes": "html_parser.py - Scan Information parsing"
@@ -125,7 +141,7 @@
       "type": "n8n-nodes-base.htmlExtract",
       "typeVersion": 1,
       "position": [
-        1120,
+        1160,
         320
       ],
       "notes": "html_parser.py - Competitors parsing"
@@ -150,7 +166,7 @@
       "type": "n8n-nodes-base.htmlExtract",
       "typeVersion": 1,
       "position": [
-        1120,
+        1160,
         440
       ],
       "notes": "html_parser.py - Sponsorlu listeler parsing"
@@ -164,7 +180,7 @@
       "type": "n8n-nodes-base.function",
       "typeVersion": 1,
       "position": [
-        1340,
+        1380,
         200
       ],
       "notes": "html_parser.py - Özet bilgiler parsing"
@@ -178,7 +194,7 @@
       "type": "n8n-nodes-base.function",
       "typeVersion": 1,
       "position": [
-        1340,
+        1380,
         320
       ],
       "notes": "html_parser.py - Competitors parsing"
@@ -192,7 +208,7 @@
       "type": "n8n-nodes-base.function",
       "typeVersion": 1,
       "position": [
-        1340,
+        1380,
         440
       ],
       "notes": "html_parser.py - Sponsorlu listeler parsing"
@@ -231,7 +247,7 @@
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.1,
       "position": [
-        1120,
+        1160,
         560
       ],
       "notes": "api_client.py - Competitors API çağrısı"
@@ -245,7 +261,7 @@
       "type": "n8n-nodes-base.function",
       "typeVersion": 1,
       "position": [
-        900,
+        940,
         560
       ],
       "notes": "api_client.py - API çağrıları hazırlığı"
@@ -261,7 +277,7 @@
       "type": "n8n-nodes-base.merge",
       "typeVersion": 2.1,
       "position": [
-        1560,
+        1600,
         360
       ],
       "notes": "Tüm verileri birleştir"
@@ -275,7 +291,7 @@
       "type": "n8n-nodes-base.function",
       "typeVersion": 1,
       "position": [
-        1780,
+        1820,
         360
       ],
       "notes": "data_exporter.py - Veri birleştirme"
@@ -291,7 +307,7 @@
       "type": "n8n-nodes-base.writeBinaryFile",
       "typeVersion": 1,
       "position": [
-        2000,
+        2040,
         280
       ],
       "notes": "JSON dosyası oluştur"
@@ -310,7 +326,7 @@
       "type": "n8n-nodes-base.convertToFile",
       "typeVersion": 1,
       "position": [
-        2000,
+        2040,
         400
       ],
       "notes": "Rakipler CSV dosyası"
@@ -327,7 +343,7 @@
       "type": "n8n-nodes-base.convertToFile",
       "typeVersion": 1,
       "position": [
-        2000,
+        2040,
         520
       ],
       "notes": "Excel dosyası oluştur"
@@ -341,13 +357,226 @@
       "type": "n8n-nodes-base.function",
       "typeVersion": 1,
       "position": [
-        680,
+        720,
         500
       ],
       "notes": "Rate limiting - etik scraping"
+    },
+    {
+      "parameters": {
+        "operation": "appendOrUpdate",
+        "documentId": "={{ $json.google_sheets_id || 'YOUR_GOOGLE_SHEETS_ID' }}",
+        "sheetName": "Özet Bilgiler",
+        "columnToMatchOn": "Tarih",
+        "dataMode": "defineBelow",
+        "fieldsUi": {
+          "fieldValues": [
+            {
+              "fieldId": "İşletme Adı",
+              "fieldValue": "={{ $json.ozet_bilgiler['İşletme Adı'] }}"
+            },
+            {
+              "fieldId": "Adres",
+              "fieldValue": "={{ $json.ozet_bilgiler.Adres }}"
+            },
+            {
+              "fieldId": "Puan",
+              "fieldValue": "={{ $json.ozet_bilgiler.Puan }}"
+            },
+            {
+              "fieldId": "Yorum Sayısı",
+              "fieldValue": "={{ $json.ozet_bilgiler['Yorum Sayısı'] }}"
+            },
+            {
+              "fieldId": "Ranked Locations",
+              "fieldValue": "={{ $json.ozet_bilgiler['Ranked Locations'] }}"
+            },
+            {
+              "fieldId": "Average rank",
+              "fieldValue": "={{ $json.ozet_bilgiler['Average rank (Ranked Locations)'] }}"
+            },
+            {
+              "fieldId": "Best rank",
+              "fieldValue": "={{ $json.ozet_bilgiler['Best rank'] }}"
+            },
+            {
+              "fieldId": "Tarih",
+              "fieldValue": "={{ $json.ozet_bilgiler.Tarih }}"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "google-sheets-summary-001",
+      "name": "Google Sheets - Özet Bilgiler",
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4,
+      "position": [
+        2260,
+        240
+      ],
+      "notes": "Özet bilgileri Google Sheets'e yaz"
+    },
+    {
+      "parameters": {
+        "operation": "clear",
+        "documentId": "={{ $json.google_sheets_id || 'YOUR_GOOGLE_SHEETS_ID' }}",
+        "sheetName": "Rakipler",
+        "options": {}
+      },
+      "id": "google-sheets-clear-competitors-001",
+      "name": "Google Sheets - Clear Competitors",
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4,
+      "position": [
+        2260,
+        360
+      ],
+      "notes": "Rakipler sayfasını temizle"
+    },
+    {
+      "parameters": {
+        "operation": "append",
+        "documentId": "={{ $json.google_sheets_id || 'YOUR_GOOGLE_SHEETS_ID' }}",
+        "sheetName": "Rakipler",
+        "dataMode": "autoMapInputData",
+        "options": {}
+      },
+      "id": "google-sheets-competitors-001",
+      "name": "Google Sheets - Rakipler",
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4,
+      "position": [
+        2480,
+        360
+      ],
+      "notes": "Rakip verilerini Google Sheets'e yaz"
+    },
+    {
+      "parameters": {
+        "operation": "clear",
+        "documentId": "={{ $json.google_sheets_id || 'YOUR_GOOGLE_SHEETS_ID' }}",
+        "sheetName": "Sponsorlu Listeler",
+        "options": {}
+      },
+      "id": "google-sheets-clear-sponsored-001",
+      "name": "Google Sheets - Clear Sponsored",
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4,
+      "position": [
+        2260,
+        480
+      ],
+      "notes": "Sponsorlu listeler sayfasını temizle"
+    },
+    {
+      "parameters": {
+        "operation": "append",
+        "documentId": "={{ $json.google_sheets_id || 'YOUR_GOOGLE_SHEETS_ID' }}",
+        "sheetName": "Sponsorlu Listeler",
+        "dataMode": "autoMapInputData",
+        "options": {}
+      },
+      "id": "google-sheets-sponsored-001",
+      "name": "Google Sheets - Sponsorlu Listeler",
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4,
+      "position": [
+        2480,
+        480
+      ],
+      "notes": "Sponsorlu liste verilerini Google Sheets'e yaz"
+    },
+    {
+      "parameters": {
+        "operation": "clear",
+        "documentId": "={{ $json.google_sheets_id || 'YOUR_GOOGLE_SHEETS_ID' }}",
+        "sheetName": "Harita Verileri",
+        "options": {}
+      },
+      "id": "google-sheets-clear-map-001",
+      "name": "Google Sheets - Clear Map Data",
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4,
+      "position": [
+        2260,
+        600
+      ],
+      "notes": "Harita verileri sayfasını temizle"
+    },
+    {
+      "parameters": {
+        "operation": "append",
+        "documentId": "={{ $json.google_sheets_id || 'YOUR_GOOGLE_SHEETS_ID' }}",
+        "sheetName": "Harita Verileri",
+        "dataMode": "autoMapInputData",
+        "options": {}
+      },
+      "id": "google-sheets-map-data-001",
+      "name": "Google Sheets - Harita Verileri",
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4,
+      "position": [
+        2480,
+        600
+      ],
+      "notes": "Harita verilerini Google Sheets'e yaz"
+    },
+    {
+      "parameters": {
+        "functionCode": "// Rakipler verisini dizi formatına çevir\nconst data = items[0].json;\n\nif (data.rakipler && Array.isArray(data.rakipler) && data.rakipler.length > 0) {\n  return data.rakipler.map(rakip => ({ json: rakip }));\n}\n\nreturn [];"
+      },
+      "id": "function-split-competitors-001",
+      "name": "Function - Split Competitors",
+      "type": "n8n-nodes-base.function",
+      "typeVersion": 1,
+      "position": [
+        2040,
+        360
+      ],
+      "notes": "Rakipler verisini her satır için ayrı item'a böl"
+    },
+    {
+      "parameters": {
+        "functionCode": "// Sponsorlu listeler verisini dizi formatına çevir\nconst data = items[0].json;\n\nif (data.sponsorlu_listeler && Array.isArray(data.sponsorlu_listeler) && data.sponsorlu_listeler.length > 0) {\n  return data.sponsorlu_listeler.map(sponsor => ({ json: sponsor }));\n}\n\nreturn [];"
+      },
+      "id": "function-split-sponsored-001",
+      "name": "Function - Split Sponsored",
+      "type": "n8n-nodes-base.function",
+      "typeVersion": 1,
+      "position": [
+        2040,
+        480
+      ],
+      "notes": "Sponsorlu liste verisini her satır için ayrı item'a böl"
+    },
+    {
+      "parameters": {
+        "functionCode": "// Harita verileri için dizi formatına çevir\nconst data = items[0].json;\n\nif (data.harita_verileri && Array.isArray(data.harita_verileri) && data.harita_verileri.length > 0) {\n  return data.harita_verileri.map(harita => ({ json: harita }));\n}\n\nreturn [];"
+      },
+      "id": "function-split-map-data-001",
+      "name": "Function - Split Map Data",
+      "type": "n8n-nodes-base.function",
+      "typeVersion": 1,
+      "position": [
+        2040,
+        600
+      ],
+      "notes": "Harita verisini her satır için ayrı item'a böl"
     }
   ],
   "connections": {
+    "Webhook": {
+      "main": [
+        [
+          {
+            "node": "Start",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
     "Start": {
       "main": [
         [
@@ -521,6 +750,92 @@
           },
           {
             "node": "Convert to File - Excel",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Google Sheets - Özet Bilgiler",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Function - Split Competitors",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Function - Split Sponsored",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Function - Split Map Data",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Function - Split Competitors": {
+      "main": [
+        [
+          {
+            "node": "Google Sheets - Clear Competitors",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Google Sheets - Clear Competitors": {
+      "main": [
+        [
+          {
+            "node": "Google Sheets - Rakipler",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Function - Split Sponsored": {
+      "main": [
+        [
+          {
+            "node": "Google Sheets - Clear Sponsored",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Google Sheets - Clear Sponsored": {
+      "main": [
+        [
+          {
+            "node": "Google Sheets - Sponsorlu Listeler",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Function - Split Map Data": {
+      "main": [
+        [
+          {
+            "node": "Google Sheets - Clear Map Data",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Google Sheets - Clear Map Data": {
+      "main": [
+        [
+          {
+            "node": "Google Sheets - Harita Verileri",
             "type": "main",
             "index": 0
           }
