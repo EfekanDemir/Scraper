@@ -46,15 +46,21 @@ class WebClient:
         self.user_agent = user_agent or (
             "Mozilla/5.0 (Windows NT 10.0; Win64; x64) "
             "AppleWebKit/537.36 (KHTML, like Gecko) "
-            "Chrome/115.0 Safari/537.36"
+            "Chrome/120.0.0.0 Safari/537.36"
         )
         self.headers = {
             "User-Agent": self.user_agent,
-            "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
-            "Accept-Language": "en-US,en;q=0.5",
-            "Accept-Encoding": "gzip, deflate",
+            "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8,application/signed-exchange;v=b3;q=0.7",
+            "Accept-Language": "en-US,en;q=0.9,tr;q=0.8",
+            "Accept-Encoding": "gzip, deflate, br",
+            "Cache-Control": "no-cache",
+            "Pragma": "no-cache",
             "Connection": "keep-alive",
             "Upgrade-Insecure-Requests": "1",
+            "Sec-Fetch-Dest": "document",
+            "Sec-Fetch-Mode": "navigate",
+            "Sec-Fetch-Site": "none",
+            "Sec-Fetch-User": "?1",
         }
         
         # Selenium setup
@@ -112,9 +118,23 @@ class WebClient:
     def _get_soup_requests(self, url: str) -> Optional[BeautifulSoup]:
         """Requests ile HTML içeriği alır."""
         self._rate_limit()
-        resp = self.session.get(url, timeout=self.timeout)
-        resp.raise_for_status()
-        return BeautifulSoup(resp.text, "html.parser")
+        try:
+            resp = self.session.get(url, timeout=self.timeout, allow_redirects=True)
+            resp.raise_for_status()
+            
+            # Content-Type kontrolü
+            content_type = resp.headers.get('content-type', '').lower()
+            if 'text/html' not in content_type and 'text/plain' not in content_type:
+                print(f"Uyarı: Beklenmeyen content-type: {content_type}")
+            
+            return BeautifulSoup(resp.text, "html.parser")
+            
+        except requests.exceptions.RequestException as e:
+            print(f"Request hatası: {e}")
+            return None
+        except Exception as e:
+            print(f"HTML parsing hatası: {e}")
+            return None
     
     def _get_soup_selenium(self, url: str) -> Optional[BeautifulSoup]:
         """Selenium ile HTML içeriği alır."""
