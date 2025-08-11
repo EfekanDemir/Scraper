@@ -30,30 +30,63 @@
     },
     {
       "parameters": {
-        "url": "={{ $json.url || 'https://www.local-rank.report/scan/97919fde-e478-4081-983f-7e0065b6b5bb' }}",
+        "method": "GET",
+        "url": "={{ $json.url || 'https://www.local-rank.report/scan/e029a8c3-3891-4dce-a61d-1406929d232a' }}",
         "sendHeaders": true,
         "headerParameters": {
           "parameters": [
             {
               "name": "User-Agent",
-              "value": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/115.0 Safari/537.36"
+              "value": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
             },
             {
               "name": "Accept",
-              "value": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8"
+              "value": "text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8,application/signed-exchange;v=b3;q=0.7"
             },
             {
               "name": "Accept-Language",
-              "value": "en-US,en;q=0.5"
+              "value": "en-US,en;q=0.9,tr;q=0.8"
+            },
+            {
+              "name": "Accept-Encoding",
+              "value": "gzip, deflate, br"
+            },
+            {
+              "name": "Cache-Control",
+              "value": "no-cache"
+            },
+            {
+              "name": "Pragma",
+              "value": "no-cache"
+            },
+            {
+              "name": "Upgrade-Insecure-Requests",
+              "value": "1"
+            },
+            {
+              "name": "Sec-Fetch-Dest",
+              "value": "document"
+            },
+            {
+              "name": "Sec-Fetch-Mode",
+              "value": "navigate"
+            },
+            {
+              "name": "Sec-Fetch-Site",
+              "value": "none"
+            },
+            {
+              "name": "Sec-Fetch-User",
+              "value": "?1"
             }
           ]
         },
         "options": {
-          "timeout": 30000,
+          "timeout": 45000,
+          "followRedirect": true,
+          "ignoreResponseCode": false,
           "response": {
-            "response": {
-              "responseFormat": "string"
-            }
+            "responseFormat": "string"
           }
         }
       },
@@ -65,7 +98,7 @@
         500,
         300
       ],
-      "notes": "web_client.py modülü - HTML içeriğini alır"
+      "notes": "web_client.py modülü - HTML içeriğini alır. Gelişmiş browser headers ile bot detection bypass."
     },
     {
       "parameters": {
@@ -215,6 +248,7 @@
     },
     {
       "parameters": {
+        "method": "GET",
         "url": "={{ $json.base_url }}/scans/get-competitors-list",
         "sendQuery": true,
         "queryParameters": {
@@ -230,16 +264,49 @@
           "parameters": [
             {
               "name": "User-Agent",
-              "value": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/115.0 Safari/537.36"
+              "value": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
             },
             {
               "name": "Accept",
-              "value": "application/json,text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8"
+              "value": "application/json,text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8,application/signed-exchange;v=b3;q=0.7"
+            },
+            {
+              "name": "Accept-Language",
+              "value": "en-US,en;q=0.9,tr;q=0.8"
+            },
+            {
+              "name": "Accept-Encoding",
+              "value": "gzip, deflate, br"
+            },
+            {
+              "name": "Cache-Control",
+              "value": "no-cache"
+            },
+            {
+              "name": "Pragma",
+              "value": "no-cache"
+            },
+            {
+              "name": "Sec-Fetch-Dest",
+              "value": "empty"
+            },
+            {
+              "name": "Sec-Fetch-Mode",
+              "value": "cors"
+            },
+            {
+              "name": "Sec-Fetch-Site",
+              "value": "same-origin"
             }
           ]
         },
         "options": {
-          "timeout": 30000
+          "timeout": 45000,
+          "followRedirect": true,
+          "ignoreResponseCode": false,
+          "response": {
+            "responseFormat": "json"
+          }
         }
       },
       "id": "0j1k2l3m-4n5o-6p7q-8r9s-t0u1v2w3x4y5",
@@ -254,7 +321,7 @@
     },
     {
       "parameters": {
-        "functionCode": "// API Analytics calls for each pinz location\nconst jsData = items[0].json.javascript_data;\nconst baseUrl = 'https://www.local-rank.report';\n\nconst apiRequests = [];\n\nif (jsData.pinz_array && jsData.pinz_array.length > 0) {\n  jsData.pinz_array.forEach((pin, index) => {\n    if (pin.url) {\n      apiRequests.push({\n        url: baseUrl + pin.url,\n        method: 'GET',\n        headers: {\n          'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/115.0 Safari/537.36',\n          'Accept': 'application/json,text/html'\n        },\n        location_index: index,\n        location_data: pin\n      });\n    }\n  });\n}\n\nreturn apiRequests.map(req => ({ json: req }));"
+        "functionCode": "// API Analytics calls for each pinz location\nconst jsData = items[0].json.javascript_data;\nconst baseUrl = 'https://www.local-rank.report';\n\nconst apiRequests = [];\n\nif (jsData.pinz_array && jsData.pinz_array.length > 0) {\n  jsData.pinz_array.forEach((pin, index) => {\n    if (pin.url) {\n      apiRequests.push({\n        url: baseUrl + pin.url,\n        method: 'GET',\n        headers: {\n          'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',\n          'Accept': 'application/json,text/html'\n        },\n        location_index: index,\n        location_data: pin\n      });\n    }\n  });\n}\n\nreturn apiRequests.map(req => ({ json: req }));"
       },
       "id": "1k2l3m4n-5o6p-7q8r-9s0t-u1v2w3x4y5z6",
       "name": "Function - Prepare API Calls",
