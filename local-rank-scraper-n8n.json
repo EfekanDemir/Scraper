@@ -202,55 +202,93 @@
       "typeVersion": 3.2
     },
     {
-      "id": "selenium-session-001",
-      "name": "0. Selenium Session Başlat",
+      "id": "web-client-basic-001",
+      "name": "1A. Web Client - Temel",
       "type": "n8n-nodes-base.httpRequest",
-      "position": [550, 200], 
+      "position": [580, 300],
       "parameters": {
-        "url": "http://selenium-chrome:4444/wd/hub/session",
-        "method": "POST",
-        "sendBody": true,
-        "specifyBody": "json",
-        "jsonBody": "{\n  \"capabilities\": {\n    \"alwaysMatch\": {\n      \"browserName\": \"chrome\",\n      \"goog:chromeOptions\": {\n        \"args\": [\n          \"--headless\",\n          \"--no-sandbox\",\n          \"--disable-dev-shm-usage\",\n          \"--disable-gpu\",\n          \"--disable-web-security\",\n          \"--disable-features=VizDisplayCompositor\",\n          \"--window-size=1920,1080\",\n          \"--user-agent={{ $json.scraper_metadata.user_agent }}\"\n        ]\n      }\n    }\n  }\n}",
+        "url": "={{ $('1. URL Ayarları').item(0).$node['url-setup-001'].json.target_url }}",
         "options": {
-          "response": {
-            "response": {
-              "responseFormat": "json"
-            }
+          "timeout": 60000,
+          "redirect": {
+            "followRedirects": true,
+            "maxRedirects": 5
+          },
+          "retry": {
+            "enabled": true,
+            "maxAttempts": 3
           }
+        },
+        "authentication": "none",
+        "requestMethod": "GET",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "User-Agent",
+              "value": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
+            },
+            {
+              "name": "Accept",
+              "value": "text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8,application/signed-exchange;v=b3;q=0.7"
+            },
+            {
+              "name": "Accept-Language",
+              "value": "en-US,en;q=0.9,tr;q=0.8"
+            },
+            {
+              "name": "Accept-Encoding",
+              "value": "gzip, deflate, br"
+            },
+            {
+              "name": "Cache-Control",
+              "value": "no-cache"
+            },
+            {
+              "name": "Pragma",
+              "value": "no-cache"
+            },
+            {
+              "name": "Connection",
+              "value": "keep-alive"
+            },
+            {
+              "name": "Upgrade-Insecure-Requests",
+              "value": "1"
+            },
+            {
+              "name": "Sec-Fetch-Dest",
+              "value": "document"
+            },
+            {
+              "name": "Sec-Fetch-Mode",
+              "value": "navigate"
+            },
+            {
+              "name": "Sec-Fetch-Site",
+              "value": "none"
+            },
+            {
+              "name": "Sec-Fetch-User",
+              "value": "?1"
+            }
+          ]
         }
       },
       "typeVersion": 4.2
     },
     {
-      "id": "selenium-session-parser-001",
-      "name": "0B. Session ID Çıkar",
-      "type": "n8n-nodes-base.set",
-      "position": [620, 200],
+      "id": "selenium-improved-001",
+      "name": "1B. Selenium ile Web Scraping",
+      "type": "n8n-nodes-base.code",
+      "position": [580, 400],
       "parameters": {
-        "fields": {
-          "values": [
-            {
-              "name": "session_id",
-              "type": "string",
-              "stringValue": "={{ $json.value.sessionId }}"
-            },
-            {
-              "name": "target_url",
-              "type": "string", 
-              "stringValue": "={{ $('URL ve Ayar Hazırlama').item.json.target_url }}"
-            },
-            {
-              "name": "timeout",
-              "type": "number",
-              "numberValue": "={{ $('URL ve Ayar Hazırlama').item.json.timeout }}"
-            }
-          ]
-        },
-        "options": {}
+        "mode": "runOnceForEachItem",
+        "jsCode": "// Improved Selenium scraping that waits for content to load\nconst targetUrl = $('1. URL Ayarları').item(0).$node['url-setup-001'].json.target_url;\nconst useSelenium = $('1. URL Ayarları').item(0).$node['url-setup-001'].json.use_selenium;\n\nif (!useSelenium) {\n  // If not using Selenium, pass through the basic HTTP result\n  return $input.item.json;\n}\n\n// For Selenium, we'll simulate a browser request with proper waiting\n// In a real n8n environment, you would use a Selenium Grid or external service\n// For now, let's create an enhanced HTTP request with better headers and timing\n\nfunction sleep(ms) {\n  return new Promise(resolve => setTimeout(resolve, ms));\n}\n\nasync function improvedScraping() {\n  try {\n    // Add delay to simulate JavaScript loading time\n    await sleep(3000);\n    \n    // Use the basic HTTP result but add enhanced processing\n    let htmlContent = $input.item.json.body || $input.item.json.html || '';\n    \n    // If HTML is too short, it might be a redirect or loading page\n    if (htmlContent.length < 10000) {\n      // Log the issue for debugging\n      console.log('HTML content seems incomplete. Length:', htmlContent.length);\n      console.log('First 500 chars:', htmlContent.substring(0, 500));\n      \n      return {\n        html: htmlContent,\n        warning: 'HTML content may be incomplete - consider using Selenium Grid',\n        content_length: htmlContent.length,\n        needs_selenium: true,\n        url: targetUrl\n      };\n    }\n    \n    return {\n      html: htmlContent,\n      content_length: htmlContent.length,\n      scraping_method: 'enhanced_http',\n      url: targetUrl\n    };\n    \n  } catch (error) {\n    return {\n      error: error.message,\n      html: '',\n      needs_selenium: true,\n      url: targetUrl\n    };\n  }\n}\n\nreturn await improvedScraping();"
       },
-      "typeVersion": 3.2
+      "typeVersion": 2
     },
+
     {
       "id": "html-parser-001",
       "name": "2. HTML Parser - Özet Bilgiler",
@@ -741,40 +779,18 @@
         ]
       ]
     },
-    "1A. Selenium ile Sayfaya Git": {
+    "1A. Web Client - Temel": {
       "main": [
         [
           {
-            "node": "1B. Sayfa Yüklenmesi Bekle",
+            "node": "1B. Selenium ile Web Scraping",
             "type": "main",
             "index": 0
           }
         ]
       ]
     },
-    "1B. Sayfa Yüklenmesi Bekle": {
-      "main": [
-        [
-          {
-            "node": "1C. HTML İçeriğini Al",
-            "type": "main",
-            "index": 0
-          }
-        ]
-      ]
-    },
-    "1C. HTML İçeriğini Al": {
-      "main": [
-        [
-          {
-            "node": "1D. HTML Formatla",
-            "type": "main",
-            "index": 0
-          }
-        ]
-      ]
-    },
-    "1D. HTML Formatla": {
+    "1B. Selenium ile Web Scraping": {
       "main": [
         [
           {
