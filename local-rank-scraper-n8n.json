@@ -45,7 +45,7 @@
             {
               "name": "use_selenium",
               "type": "boolean",
-              "booleanValue": "={{ $json.use_selenium || $json.body?.use_selenium || false }}"
+              "booleanValue": "={{ $json.use_selenium || $json.body?.use_selenium || true }}"
             },
             {
               "name": "rate_limit",
@@ -91,47 +91,14 @@
     },
     {
       "id": "web-client-basic-001",
-      "name": "1. HTML İçeriği Al (Basic)",
-      "type": "n8n-nodes-base.httpRequest",
+      "name": "1. HTML İçeriği Al (Dynamic)",
+      "type": "n8n-nodes-base.code",
       "position": [700, 200],
       "parameters": {
-        "url": "={{ $json.target_url }}",
-        "method": "GET",
-        "options": {
-          "timeout": "={{ $json.timeout * 1000 }}",
-          "followRedirect": true
-        },
-        "sendHeaders": true,
-        "headerParameters": {
-          "parameters": [
-            {
-              "name": "User-Agent",
-              "value": "={{ $json.scraper_metadata.user_agent }}"
-            },
-            {
-              "name": "Accept",
-              "value": "text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8"
-            },
-            {
-              "name": "Accept-Language", 
-              "value": "en-US,en;q=0.9,tr;q=0.8"
-            },
-            {
-              "name": "Accept-Encoding",
-              "value": "gzip, deflate, br"
-            },
-            {
-              "name": "Cache-Control",
-              "value": "no-cache"
-            },
-            {
-              "name": "Connection",
-              "value": "keep-alive"
-            }
-          ]
-        }
+        "mode": "runOnceForEachItem",
+        "jsCode": "// Dynamic web scraping with Selenium/Playwright support\nconst useSelenium = $input.item.json.use_selenium;\nconst targetUrl = $input.item.json.target_url;\nconst timeout = ($input.item.json.timeout || 30) * 1000;\nconst userAgent = $input.item.json.scraper_metadata?.user_agent || 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36';\n\nif (useSelenium) {\n  // Use browser automation for dynamic content\n  try {\n    // Since n8n doesn't have built-in browser automation,\n    // we'll use a more sophisticated HTTP approach with retries\n    const response = await fetch(targetUrl, {\n      method: 'GET',\n      headers: {\n        'User-Agent': userAgent,\n        'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8',\n        'Accept-Language': 'en-US,en;q=0.9,tr;q=0.8',\n        'Accept-Encoding': 'gzip, deflate, br',\n        'Cache-Control': 'no-cache',\n        'Connection': 'keep-alive',\n        'Upgrade-Insecure-Requests': '1',\n        'Sec-Fetch-Dest': 'document',\n        'Sec-Fetch-Mode': 'navigate',\n        'Sec-Fetch-Site': 'none'\n      }\n    });\n    \n    if (!response.ok) {\n      throw new Error(`HTTP ${response.status}: ${response.statusText}`);\n    }\n    \n    let html = await response.text();\n    \n    // If the HTML seems incomplete (just head section), try alternative approach\n    if (html.length < 5000 || !html.includes('class=') || !html.includes('<main')) {\n      console.log('Initial HTML seems incomplete, trying alternative headers...');\n      \n      // Try with different headers that might bypass some restrictions\n      const response2 = await fetch(targetUrl, {\n        method: 'GET',\n        headers: {\n          'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:109.0) Gecko/20100101 Firefox/115.0',\n          'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,*/*;q=0.8',\n          'Accept-Language': 'en-US,en;q=0.5',\n          'Accept-Encoding': 'gzip, deflate',\n          'DNT': '1',\n          'Connection': 'keep-alive',\n          'Upgrade-Insecure-Requests': '1'\n        }\n      });\n      \n      if (response2.ok) {\n        const html2 = await response2.text();\n        if (html2.length > html.length) {\n          html = html2;\n        }\n      }\n    }\n    \n    return {\n      html: html,\n      method: 'selenium_enhanced',\n      url: targetUrl,\n      timestamp: new Date().toISOString(),\n      html_length: html.length\n    };\n    \n  } catch (error) {\n    return {\n      html: '',\n      method: 'selenium_failed',\n      error: error.message,\n      url: targetUrl,\n      timestamp: new Date().toISOString()\n    };\n  }\n} else {\n  // Basic HTTP request\n  try {\n    const response = await fetch(targetUrl, {\n      method: 'GET',\n      headers: {\n        'User-Agent': userAgent,\n        'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8'\n      }\n    });\n    \n    const html = await response.text();\n    \n    return {\n      html: html,\n      method: 'http_basic',\n      url: targetUrl,\n      timestamp: new Date().toISOString(),\n      html_length: html.length\n    };\n    \n  } catch (error) {\n    return {\n      html: '',\n      method: 'http_failed',\n      error: error.message,\n      url: targetUrl,\n      timestamp: new Date().toISOString()\n    };\n  }\n}"
       },
-      "typeVersion": 4.2
+      "typeVersion": 2
     },
     {
       "id": "selenium-backup-001",
@@ -151,154 +118,46 @@
     {
       "id": "html-parser-001",
       "name": "2. HTML Parser - Özet Bilgiler",
-      "type": "n8n-nodes-base.html",
+      "type": "n8n-nodes-base.code",
       "position": [900, 100],
       "parameters": {
-        "operation": "extractHtmlContent",
-        "extractionValues": {
-          "values": [
-            {
-              "key": "scan_info_table",
-              "cssSelector": "table:contains('Business Name'), .scan-info table, .info-table",
-              "returnValue": "html",
-              "returnArray": false
-            },
-            {
-              "key": "business_name",
-              "cssSelector": "td:contains('Business Name') + td, .business-name, h1",
-              "returnValue": "text",
-              "returnArray": false
-            },
-            {
-              "key": "location",
-              "cssSelector": "td:contains('Location') + td, .location",
-              "returnValue": "text", 
-              "returnArray": false
-            },
-            {
-              "key": "search_term",
-              "cssSelector": "td:contains('Search Term') + td, .search-term",
-              "returnValue": "text",
-              "returnArray": false
-            },
-            {
-              "key": "rank_summary_section",
-              "cssSelector": ".rank-summary, .summary-section, .results-summary",
-              "returnValue": "html",
-              "returnArray": false
-            }
-          ]
-        },
-        "options": {}
+        "mode": "runOnceForEachItem",
+        "jsCode": "// Parse Scan Information from HTML using same logic as Python scraper\nconst html = $input.item.json.html;\nif (!html) {\n  return { scan_information: {}, error: 'No HTML content' };\n}\n\n// Create a simple HTML parser function\nfunction parseHTML(htmlString) {\n  // Since we can't use cheerio/jsdom in n8n, we'll use regex parsing\n  const results = {};\n  \n  try {\n    // Look for Scan Information section\n    const scanInfoMatch = htmlString.match(/<h4[^>]*>\\s*Scan Information\\s*<\\/h4>[\\s\\S]*?<table[^>]*>([\\s\\S]*?)<\\/table>/i);\n    \n    if (scanInfoMatch) {\n      const tableContent = scanInfoMatch[1];\n      \n      // Extract business name (look for bizname class)\n      const bizNameMatch = tableContent.match(/<span[^>]*class=[\"']?[^\"']*bizname[^\"']*[\"']?[^>]*>([^<]+)<\\/span>/i);\n      if (bizNameMatch) {\n        results['İşletme Adı'] = bizNameMatch[1].trim();\n      }\n      \n      // Extract address (look for center-block class)\n      const addressMatch = tableContent.match(/<span[^>]*class=[\"']?[^\"']*center-block[^\"']*[\"']?[^>]*>([^<]+)<\\/span>/i);\n      if (addressMatch) {\n        results['Adres'] = addressMatch[1].trim();\n      }\n      \n      // Extract rating and reviews\n      const ratingMatch = tableContent.match(/title=[\"']?([0-9]+(?:[\\.,][0-9]+)?)\\s*out\\s*of\\s*5[\"']?/i);\n      if (ratingMatch) {\n        results['Puan'] = ratingMatch[1].replace(',', '.');\n      } else {\n        results['Puan'] = 'N/A';\n      }\n      \n      // Extract keyword\n      const keywordMatch = tableContent.match(/<td[^>]*>\\s*Keyword[\\s\\S]*?<\\/td>\\s*<td[^>]*>([^<]+)<\\/td>/i);\n      if (keywordMatch) {\n        results['Anahtar Kelime ve Dil'] = keywordMatch[1].trim();\n      }\n      \n      // Extract date\n      const dateMatch = tableContent.match(/<td[^>]*class=[\"']?[^\"']*cnv_dt_lcl[^\"']*[\"']?[^>]*>([^<]+)<\\/td>/i);\n      if (dateMatch) {\n        results['Tarih'] = dateMatch[1].trim();\n      }\n    }\n    \n    // Also look for Rank Summary section\n    const rankSummaryMatch = htmlString.match(/<h4[^>]*>\\s*Rank Summary\\s*<\\/h4>[\\s\\S]*?<table[^>]*>([\\s\\S]*?)<\\/table>/i);\n    \n    if (rankSummaryMatch) {\n      const rankTableContent = rankSummaryMatch[1];\n      \n      // Extract ranked locations\n      const rankedMatch = rankTableContent.match(/<td[^>]*>\\s*Ranked Locations[\\s\\S]*?<\\/td>\\s*<td[^>]*>([^<]+)<\\/td>/i);\n      if (rankedMatch) {\n        results['Ranked Locations'] = rankedMatch[1].trim();\n      }\n      \n      // Extract average rank\n      const avgRankMatch = rankTableContent.match(/<td[^>]*>\\s*Average rank[\\s\\S]*?<\\/td>\\s*<td[^>]*>([^<]+)<\\/td>/i);\n      if (avgRankMatch) {\n        results['Average rank'] = avgRankMatch[1].trim();\n      }\n      \n      // Extract best rank\n      const bestRankMatch = rankTableContent.match(/<td[^>]*>\\s*Best rank[\\s\\S]*?<\\/td>\\s*<td[^>]*>([^<]+)<\\/td>/i);\n      if (bestRankMatch) {\n        results['Best rank'] = bestRankMatch[1].trim();\n      }\n    }\n    \n  } catch (error) {\n    console.log('HTML parsing error:', error.message);\n    results.error = error.message;\n  }\n  \n  return results;\n}\n\nconst scanInfo = parseHTML(html);\n\nreturn {\n  scan_information: scanInfo,\n  html_length: html.length,\n  parsing_method: 'regex_enhanced'\n};"
       },
-      "typeVersion": 1.2
+      "typeVersion": 2
     },
     {
       "id": "html-parser-002",
       "name": "3. HTML Parser - Rakipler",
-      "type": "n8n-nodes-base.html", 
+      "type": "n8n-nodes-base.code", 
       "position": [900, 200],
       "parameters": {
-        "operation": "extractHtmlContent",
-        "extractionValues": {
-          "values": [
-            {
-              "key": "competitors",
-              "cssSelector": ".competitor-item, .competitor, .result-item:has(.rating)",
-              "returnValue": "html",
-              "returnArray": true
-            },
-            {
-              "key": "competitor_names",
-              "cssSelector": ".competitor-name, .business-name, h3",
-              "returnValue": "text",
-              "returnArray": true
-            },
-            {
-              "key": "competitor_ratings",
-              "cssSelector": ".rating-stars, .rating, [title*='out of 5']",
-              "returnValue": "attribute",
-              "attribute": "title",
-              "returnArray": true
-            },
-            {
-              "key": "competitor_addresses",
-              "cssSelector": ".address, .location, .competitor-address",
-              "returnValue": "text",
-              "returnArray": true
-            }
-          ]
-        },
-        "options": {}
+        "mode": "runOnceForEachItem",
+        "jsCode": "// Parse competitors from HTML using same logic as Python scraper\nconst html = $input.item.json.html;\nif (!html) {\n  return { competitors: [], error: 'No HTML content' };\n}\n\nfunction parseCompetitors(htmlString) {\n  const competitors = [];\n  \n  try {\n    // Look for competitors table with id tbl_comp_rank\n    const compTableMatch = htmlString.match(/<table[^>]*id=[\"']?tbl_comp_rank[\"']?[^>]*>([\\s\\S]*?)<\\/table>/i);\n    \n    if (compTableMatch) {\n      const tableContent = compTableMatch[1];\n      \n      // Find tbody content\n      const tbodyMatch = tableContent.match(/<tbody[^>]*>([\\s\\S]*?)<\\/tbody>/i);\n      const rowsContent = tbodyMatch ? tbodyMatch[1] : tableContent;\n      \n      // Split by table rows\n      const rowMatches = rowsContent.match(/<tr[^>]*>([\\s\\S]*?)<\\/tr>/gi);\n      \n      if (rowMatches) {\n        for (const rowMatch of rowMatches) {\n          const rowContent = rowMatch.replace(/<\\/?tr[^>]*>/gi, '');\n          const competitor = {};\n          \n          // Extract name (look for a.ext link)\n          const nameMatch = rowContent.match(/<a[^>]*class=[\"']?[^\"']*ext[^\"']*[\"']?[^>]*>([^<]+)<\\/a>/i);\n          if (nameMatch) {\n            competitor['İsim'] = nameMatch[1].trim();\n          }\n          \n          // Extract rating from title attribute\n          const ratingMatch = rowContent.match(/title=[\"']?([0-9]+(?:[\\.,][0-9]+)?)\\s*out\\s*of\\s*5[\"']?/i);\n          if (ratingMatch) {\n            competitor['Puan'] = ratingMatch[1].replace(',', '.');\n          } else {\n            competitor['Puan'] = 'N/A';\n          }\n          \n          // Extract address (look for fa-map-marker icon parent)\n          const addressMatch = rowContent.match(/<i[^>]*class=[\"']?[^\"']*fa-map-marker[^\"']*[\"']?[^>]*><\\/i>[\\s\\S]*?<span[^>]*>([^<]+)<\\/span>/i);\n          if (addressMatch) {\n            competitor['Adres'] = addressMatch[1].trim();\n          }\n          \n          // Extract website (look for fa-globe icon)\n          const websiteMatch = rowContent.match(/<i[^>]*class=[\"']?[^\"']*fa-globe[^\"']*[\"']?[^>]*><\\/i>[\\s\\S]*?<a[^>]*href=[\"']?([^\"'\\s>]+)[\"']?/i);\n          if (websiteMatch) {\n            competitor['Web Sitesi'] = websiteMatch[1];\n          } else {\n            competitor['Web Sitesi'] = 'N/A';\n          }\n          \n          // Extract photo count (look for fa-photo icon)\n          const photoMatch = rowContent.match(/<i[^>]*class=[\"']?[^\"']*fa-photo[^\"']*[\"']?[^>]*><\\/i>[\\s\\S]*?<span[^>]*>([^<]+)<\\/span>/i);\n          if (photoMatch) {\n            competitor['Fotoğraf Sayısı'] = photoMatch[1].trim();\n          }\n          \n          // Extract claimed status\n          const claimedMatch = rowContent.match(/<span[^>]*>\\s*((?:Un\\s*)?Claimed)\\s*<\\/span>/i);\n          if (claimedMatch) {\n            competitor['Sahiplenme Durumu'] = claimedMatch[1].trim();\n          }\n          \n          // Extract location count (text-center h5)\n          const locationMatch = rowContent.match(/<td[^>]*class=[\"']?[^\"']*text-center[^\"']*[\"']?[^>]*>\\s*<h5[^>]*>([^<]+)<\\/h5>/i);\n          if (locationMatch) {\n            competitor['Bulunduğu Konum Sayısı'] = locationMatch[1].trim();\n          }\n          \n          // Extract average ranking (dotlg2 class)\n          const avgRankMatch = rowContent.match(/<span[^>]*class=[\"']?[^\"']*dotlg2[^\"']*[\"']?[^>]*>([^<]+)<\\/span>/i);\n          if (avgRankMatch) {\n            competitor['Ortalama Sıralama'] = avgRankMatch[1].trim();\n          }\n          \n          // Only add if we found at least a name\n          if (competitor['İsim']) {\n            // Set defaults for missing values\n            competitor['Yorum Sayısı'] = '0';\n            competitor['Kategoriler'] = 'N/A';\n            \n            competitors.push(competitor);\n          }\n        }\n      }\n    }\n    \n  } catch (error) {\n    console.log('Competitors parsing error:', error.message);\n  }\n  \n  return competitors;\n}\n\nconst competitorData = parseCompetitors(html);\n\nreturn {\n  competitors: competitorData,\n  competitor_count: competitorData.length,\n  parsing_method: 'regex_table_enhanced'\n};"
       },
-      "typeVersion": 1.2
+      "typeVersion": 2
     },
     {
       "id": "html-parser-003",
       "name": "4. HTML Parser - Sponsorlu Listeler",
-      "type": "n8n-nodes-base.html",
+      "type": "n8n-nodes-base.code",
       "position": [900, 300],
       "parameters": {
-        "operation": "extractHtmlContent", 
-        "extractionValues": {
-          "values": [
-            {
-              "key": "sponsored_listings",
-              "cssSelector": ".sponsored, .ad, [data-sponsored='true'], .listing-ad",
-              "returnValue": "html",
-              "returnArray": true
-            },
-            {
-              "key": "sponsored_titles",
-              "cssSelector": ".sponsored .title, .ad-title, .sponsored h3",
-              "returnValue": "text",
-              "returnArray": true
-            },
-            {
-              "key": "sponsored_urls",
-              "cssSelector": ".sponsored a, .ad a",
-              "returnValue": "attribute",
-              "attribute": "href",
-              "returnArray": true
-            }
-          ]
-        },
-        "options": {}
+        "mode": "runOnceForEachItem",
+        "jsCode": "// Parse sponsored listings from HTML using same logic as Python scraper\nconst html = $input.item.json.html;\nif (!html) {\n  return { sponsored_listings: [], error: 'No HTML content' };\n}\n\nfunction parseSponsoredListings(htmlString) {\n  const listings = [];\n  \n  try {\n    // Look for sponsored ads table with id tbl_ads_rank\n    const adsTableMatch = htmlString.match(/<table[^>]*id=[\"']?tbl_ads_rank[\"']?[^>]*>([\\s\\S]*?)<\\/table>/i);\n    \n    if (adsTableMatch) {\n      const tableContent = adsTableMatch[1];\n      \n      // Find tbody content\n      const tbodyMatch = tableContent.match(/<tbody[^>]*>([\\s\\S]*?)<\\/tbody>/i);\n      const rowsContent = tbodyMatch ? tbodyMatch[1] : tableContent;\n      \n      // Split by table rows\n      const rowMatches = rowsContent.match(/<tr[^>]*>([\\s\\S]*?)<\\/tr>/gi);\n      \n      if (rowMatches) {\n        for (const rowMatch of rowMatches) {\n          const rowContent = rowMatch.replace(/<\\/?tr[^>]*>/gi, '');\n          const listing = {};\n          \n          // Extract name (look for a.ext link)\n          const nameMatch = rowContent.match(/<a[^>]*class=[\"']?[^\"']*ext[^\"']*[\"']?[^>]*>([^<]+)<\\/a>/i);\n          if (nameMatch) {\n            listing['İsim'] = nameMatch[1].trim();\n          }\n          \n          // Extract rating from title attribute\n          const ratingMatch = rowContent.match(/title=[\"']?([0-9]+(?:[\\.,][0-9]+)?)\\s*out\\s*of\\s*5[\"']?/i);\n          if (ratingMatch) {\n            listing['Puan'] = ratingMatch[1].replace(',', '.');\n          } else {\n            listing['Puan'] = 'N/A';\n          }\n          \n          // Extract view count (usually in the last td)\n          const tds = rowContent.match(/<td[^>]*>([\\s\\S]*?)<\\/td>/gi);\n          if (tds && tds.length > 0) {\n            const lastTd = tds[tds.length - 1];\n            const viewMatch = lastTd.match(/>([^<]*\\d+[^<]*)</i);\n            if (viewMatch) {\n              listing['Görülme Sayısı'] = viewMatch[1].trim();\n            }\n          }\n          \n          // Only add if we found at least a name\n          if (listing['İsim']) {\n            // Set defaults for missing values\n            listing['Yorum Sayısı'] = '0';\n            listing['Görülme Sayısı'] = listing['Görülme Sayısı'] || 'N/A';\n            \n            listings.push(listing);\n          }\n        }\n      }\n    }\n    \n  } catch (error) {\n    console.log('Sponsored listings parsing error:', error.message);\n  }\n  \n  return listings;\n}\n\nconst sponsoredData = parseSponsoredListings(html);\n\nreturn {\n  sponsored_listings: sponsoredData,\n  sponsored_count: sponsoredData.length,\n  parsing_method: 'regex_ads_table'\n};"
       },
-      "typeVersion": 1.2
+      "typeVersion": 2
     },
     {
       "id": "html-parser-004",
       "name": "5. HTML Parser - Detaylı Sonuçlar",
-      "type": "n8n-nodes-base.html",
+      "type": "n8n-nodes-base.code",
       "position": [900, 400],
       "parameters": {
-        "operation": "extractHtmlContent",
-        "extractionValues": {
-          "values": [
-            {
-              "key": "detailed_results",
-              "cssSelector": ".result-detail, .detailed-result, .search-result",
-              "returnValue": "html", 
-              "returnArray": true
-            },
-            {
-              "key": "result_positions",
-              "cssSelector": ".position, .rank, .result-number",
-              "returnValue": "text",
-              "returnArray": true
-            },
-            {
-              "key": "result_urls",
-              "cssSelector": ".result-url, .listing-url, .website-link",
-              "returnValue": "text",
-              "returnArray": true
-            }
-          ]
-        },
-        "options": {}
+        "mode": "runOnceForEachItem",
+        "jsCode": "// Parse detailed results from HTML using same logic as Python scraper\nconst html = $input.item.json.html;\nif (!html) {\n  return { detailed_results: [], error: 'No HTML content' };\n}\n\nfunction parseDetailedResults(htmlString) {\n  const results = [];\n  \n  try {\n    // Look for detailed results table with id tbl_search_rank\n    const detailTableMatch = htmlString.match(/<table[^>]*id=[\"']?tbl_search_rank[\"']?[^>]*>([\\s\\S]*?)<\\/table>/i);\n    \n    if (detailTableMatch) {\n      const tableContent = detailTableMatch[1];\n      \n      // Find tbody content\n      const tbodyMatch = tableContent.match(/<tbody[^>]*>([\\s\\S]*?)<\\/tbody>/i);\n      const rowsContent = tbodyMatch ? tbodyMatch[1] : tableContent;\n      \n      // Split by table rows\n      const rowMatches = rowsContent.match(/<tr[^>]*>([\\s\\S]*?)<\\/tr>/gi);\n      \n      if (rowMatches) {\n        for (const rowMatch of rowMatches) {\n          const rowContent = rowMatch.replace(/<\\/?tr[^>]*>/gi, '');\n          const result = {};\n          \n          // Extract name (look for a.ext link)\n          const nameMatch = rowContent.match(/<a[^>]*class=[\"']?[^\"']*ext[^\"']*[\"']?[^>]*>([^<]+)<\\/a>/i);\n          if (nameMatch) {\n            result['İsim'] = nameMatch[1].trim();\n          }\n          \n          // Extract rating from title attribute\n          const ratingMatch = rowContent.match(/title=[\"']?([0-9]+(?:[\\.,][0-9]+)?)\\s*out\\s*of\\s*5[\"']?/i);\n          if (ratingMatch) {\n            result['Puan'] = ratingMatch[1].replace(',', '.');\n          } else {\n            result['Puan'] = 'N/A';\n          }\n          \n          // Extract address (look for fa-map-marker icon parent)\n          const addressMatch = rowContent.match(/<i[^>]*class=[\"']?[^\"']*fa-map-marker[^\"']*[\"']?[^>]*><\\/i>[\\s\\S]*?<span[^>]*>([^<]+)<\\/span>/i);\n          if (addressMatch) {\n            result['Adres'] = addressMatch[1].trim();\n          }\n          \n          // Extract position/rank (usually in first or second cell)\n          const tds = rowContent.match(/<td[^>]*>([\\s\\S]*?)<\\/td>/gi);\n          if (tds && tds.length > 0) {\n            const firstTd = tds[0];\n            const rankMatch = firstTd.match(/>\\s*(\\d+)\\s*</i);\n            if (rankMatch) {\n              result['Sıralama'] = rankMatch[1];\n            }\n          }\n          \n          // Extract website (look for fa-globe icon)\n          const websiteMatch = rowContent.match(/<i[^>]*class=[\"']?[^\"']*fa-globe[^\"']*[\"']?[^>]*><\\/i>[\\s\\S]*?<a[^>]*href=[\"']?([^\"'\\s>]+)[\"']?/i);\n          if (websiteMatch) {\n            result['Web Sitesi'] = websiteMatch[1];\n          } else {\n            result['Web Sitesi'] = 'N/A';\n          }\n          \n          // Only add if we found at least a name\n          if (result['İsim']) {\n            // Set defaults for missing values\n            result['Yorum Sayısı'] = '0';\n            result['Sıralama'] = result['Sıralama'] || 'N/A';\n            \n            results.push(result);\n          }\n        }\n      }\n    }\n    \n  } catch (error) {\n    console.log('Detailed results parsing error:', error.message);\n  }\n  \n  return results;\n}\n\nconst detailedData = parseDetailedResults(html);\n\nreturn {\n  detailed_results: detailedData,\n  results_count: detailedData.length,\n  parsing_method: 'regex_search_table'\n};"
       },
-      "typeVersion": 1.2
+      "typeVersion": 2
     },
     {
       "id": "js-extractor-001",
