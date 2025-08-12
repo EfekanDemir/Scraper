@@ -1,0 +1,363 @@
+{
+  "name": "Local Rank Report Scraper - Advanced (with API)",
+  "nodes": [
+    {
+      "parameters": {
+        "values": {
+          "string": [
+            {
+              "name": "url",
+              "value": "https://www.local-rank.report/scan/97919fde-e478-4081-983f-7e0065b6b5bb"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "start_node",
+      "name": "Start - Input URL",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.2,
+      "position": [340, 240]
+    },
+    {
+      "parameters": {
+        "url": "={{ $json.url }}",
+        "options": {
+          "timeout": 30000,
+          "redirect": {
+            "redirect": {}
+          }
+        }
+      },
+      "id": "http_request_main",
+      "name": "HTTP Request - Get HTML",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.1,
+      "position": [540, 240]
+    },
+    {
+      "parameters": {
+        "dataPropertyName": "data",
+        "extractionValues": {
+          "values": [
+            {
+              "key": "scan_info_table",
+              "cssSelector": "div.card-body table",
+              "returnValue": "html"
+            },
+            {
+              "key": "rank_summary_table",
+              "cssSelector": "div.card-body table:nth-of-type(2)",
+              "returnValue": "html"
+            },
+            {
+              "key": "competitors_table",
+              "cssSelector": "div.col-md-12 table",
+              "returnValue": "html"
+            },
+            {
+              "key": "sponsored_listings",
+              "cssSelector": "div.sponsored-listings",
+              "returnValue": "html"
+            },
+            {
+              "key": "all_scripts",
+              "cssSelector": "script",
+              "returnValue": "html"
+            }
+          ]
+        }
+      },
+      "id": "html_extract",
+      "name": "HTML Extract",
+      "type": "n8n-nodes-base.htmlExtract",
+      "typeVersion": 1,
+      "position": [740, 240]
+    },
+    {
+      "parameters": {
+        "functionCode": "// Extract JavaScript data and prepare for API calls\nconst scriptsHtml = $input.first().json.all_scripts;\nif (!scriptsHtml) return [];\n\nconst cheerio = require('cheerio');\nconst $ = cheerio.load(scriptsHtml);\n\nlet jsData = {\n  pinz: [],\n  scan_guid: null,\n  place_id: null,\n  base_url: ''\n};\n\n// Extract base URL from input\nconst inputUrl = $input.first().json.url || $('input').data('url');\nif (inputUrl) {\n  const urlObj = new URL(inputUrl);\n  jsData.base_url = `${urlObj.protocol}//${urlObj.host}`;\n}\n\n$('script').each((i, script) => {\n  const scriptText = $(script).html() || '';\n  \n  // Extract pinz array\n  const pinzMatch = scriptText.match(/var\\s+pinz\\s*=\\s*(\\[.*?\\]);/s);\n  if (pinzMatch) {\n    try {\n      jsData.pinz = JSON.parse(pinzMatch[1]);\n    } catch (e) {\n      console.log('Error parsing pinz array:', e);\n    }\n  }\n  \n  // Extract scan_guid\n  const scanGuidMatch = scriptText.match(/scan_guid['\"]?\\s*[:=]\\s*['\"]([^'\"]+)['\"]/i);\n  if (scanGuidMatch) {\n    jsData.scan_guid = scanGuidMatch[1];\n  }\n  \n  // Extract place_id\n  const placeIdMatch = scriptText.match(/place_id['\"]?\\s*[:=]\\s*['\"]([^'\"]+)['\"]/i);\n  if (placeIdMatch) {\n    jsData.place_id = placeIdMatch[1];\n  }\n});\n\nreturn [{ json: { javascript_data: jsData, original_data: $input.first().json } }];"
+      },
+      "id": "extract_js_prepare_api",
+      "name": "Extract JS Data & Prepare API",
+      "type": "n8n-nodes-base.function",
+      "typeVersion": 1,
+      "position": [940, 240]
+    },
+    {
+      "parameters": {
+        "url": "={{ $json.javascript_data.base_url }}/scans/get-competitors-list",
+        "sendQuery": true,
+        "queryParameters": {
+          "parameters": [
+            {
+              "name": "scan_guid",
+              "value": "={{ $json.javascript_data.scan_guid }}"
+            }
+          ]
+        },
+        "options": {
+          "timeout": 15000
+        }
+      },
+      "id": "api_competitors",
+      "name": "API - Get Competitors",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.1,
+      "position": [1140, 140]
+    },
+    {
+      "parameters": {
+        "functionCode": "// Create multiple HTTP requests for analytics data\nconst jsData = $input.first().json.javascript_data;\nconst baseUrl = jsData.base_url;\nconst pinzArray = jsData.pinz || [];\n\nconst requests = [];\n\n// Create API requests for each pin\npinzArray.slice(0, 10).forEach((pin, index) => { // Limit to first 10 for demo\n  if (pin.url) {\n    requests.push({\n      json: {\n        url: `${baseUrl}${pin.url}`,\n        pin_index: index,\n        pin_data: pin\n      }\n    });\n  }\n});\n\nreturn requests;"
+      },
+      "id": "prepare_analytics_requests",
+      "name": "Prepare Analytics Requests",
+      "type": "n8n-nodes-base.function",
+      "typeVersion": 1,
+      "position": [1140, 240]
+    },
+    {
+      "parameters": {
+        "url": "={{ $json.url }}",
+        "options": {
+          "timeout": 10000
+        }
+      },
+      "id": "api_analytics_batch",
+      "name": "API - Analytics Data",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.1,
+      "position": [1340, 240]
+    },
+    {
+      "parameters": {
+        "functionCode": "// Parse basic HTML data\nconst originalData = $input.first().json.original_data;\n\nconst cheerio = require('cheerio');\n\n// Parse Scan Information\nlet scanInfo = {};\nif (originalData.scan_info_table) {\n  const $ = cheerio.load(originalData.scan_info_table);\n  $('tr').each((i, row) => {\n    const cells = $(row).find('td');\n    if (cells.length >= 2) {\n      const key = $(cells[0]).text().trim().replace(':', '');\n      const value = $(cells[1]).text().trim();\n      scanInfo[key] = value;\n    }\n  });\n}\n\n// Parse Rank Summary\nlet rankSummary = {};\nif (originalData.rank_summary_table) {\n  const $ = cheerio.load(originalData.rank_summary_table);\n  $('tr').each((i, row) => {\n    const cells = $(row).find('td');\n    if (cells.length >= 2) {\n      const key = $(cells[0]).text().trim().replace(':', '');\n      const value = $(cells[1]).text().trim();\n      rankSummary[key] = value;\n    }\n  });\n}\n\n// Parse Competitors\nlet competitors = [];\nif (originalData.competitors_table) {\n  const $ = cheerio.load(originalData.competitors_table);\n  $('tbody tr').each((i, row) => {\n    const cells = $(row).find('td');\n    if (cells.length >= 3) {\n      competitors.push({\n        rank: $(cells[0]).text().trim(),\n        business_name: $(cells[1]).text().trim(),\n        address: $(cells[2]).text().trim(),\n        phone: cells.length > 3 ? $(cells[3]).text().trim() : 'N/A',\n        website: cells.length > 4 ? $(cells[4]).text().trim() : 'N/A'\n      });\n    }\n  });\n}\n\nreturn [{\n  json: {\n    scan_information: scanInfo,\n    rank_summary: rankSummary,\n    competitors: competitors\n  }\n}];"
+      },
+      "id": "parse_html_data",
+      "name": "Parse HTML Data",
+      "type": "n8n-nodes-base.function",
+      "typeVersion": 1,
+      "position": [1140, 340]
+    },
+    {
+      "parameters": {
+        "mode": "combine",
+        "combinationMode": "mergeByPosition",
+        "options": {}
+      },
+      "id": "merge_api_data",
+      "name": "Merge API Data",
+      "type": "n8n-nodes-base.merge",
+      "typeVersion": 2.1,
+      "position": [1540, 240]
+    },
+    {
+      "parameters": {
+        "functionCode": "// Combine all data into final structure\nconst allInputs = $input.all();\n\nlet combinedData = {\n  ozet_bilgiler: {},\n  rakipler: [],\n  sponsorlu_listeler: [],\n  detayli_sonuclar: [],\n  harita_verileri: [],\n  javascript_verileri: {},\n  api_verileri: {\n    competitors: null,\n    analytics: []\n  },\n  metadata: {\n    scraped_at: new Date().toISOString(),\n    scraper_version: '2.0-n8n-advanced',\n    method: 'n8n_advanced_workflow_with_api'\n  }\n};\n\n// Process each input\nallInputs.forEach(input => {\n  const data = input.json;\n  \n  // HTML parsed data\n  if (data.scan_information) {\n    combinedData.ozet_bilgiler = { ...combinedData.ozet_bilgiler, ...data.scan_information };\n  }\n  if (data.rank_summary) {\n    combinedData.ozet_bilgiler = { ...combinedData.ozet_bilgiler, ...data.rank_summary };\n  }\n  if (data.competitors) {\n    combinedData.rakipler = data.competitors;\n  }\n  \n  // JavaScript data\n  if (data.javascript_data) {\n    combinedData.javascript_verileri = data.javascript_data;\n    \n    // Extract map data from pinz array\n    if (data.javascript_data.pinz && Array.isArray(data.javascript_data.pinz)) {\n      combinedData.harita_verileri = data.javascript_data.pinz.map(pin => ({\n        lat: pin.lat,\n        lng: pin.lng,\n        title: pin.title || 'N/A',\n        address: pin.address || 'N/A',\n        url: pin.url || 'N/A'\n      }));\n    }\n  }\n  \n  // API data from competitors endpoint\n  if (data.data && Array.isArray(data.data)) {\n    combinedData.api_verileri.competitors = data.data;\n  }\n  \n  // API data from analytics endpoints\n  if (data.pin_index !== undefined) {\n    combinedData.api_verileri.analytics.push({\n      pin_index: data.pin_index,\n      pin_data: data.pin_data,\n      api_response: data\n    });\n  }\n});\n\nreturn [{ json: combinedData }];"
+      },
+      "id": "combine_final_data",
+      "name": "Combine Final Data",
+      "type": "n8n-nodes-base.function",
+      "typeVersion": 1,
+      "position": [1740, 240]
+    },
+    {
+      "parameters": {
+        "operation": "write",
+        "fileName": "={{ 'advanced_scraped_data_' + $now.format('YYYY-MM-DD_HH-mm-ss') + '.json' }}",
+        "fileContent": "={{ JSON.stringify($json, null, 2) }}",
+        "options": {}
+      },
+      "id": "save_json",
+      "name": "Save to JSON",
+      "type": "n8n-nodes-base.readWriteFile",
+      "typeVersion": 1,
+      "position": [1940, 160]
+    },
+    {
+      "parameters": {
+        "functionCode": "// Convert to CSV format for Excel compatibility\nconst data = $input.first().json;\n\n// Create CSV for ozet_bilgiler\nlet csvContent = 'Category,Key,Value\\n';\nObject.entries(data.ozet_bilgiler || {}).forEach(([key, value]) => {\n  csvContent += `\"Özet Bilgiler\",\"${key}\",\"${value}\"\\n`;\n});\n\n// Add competitors\n(data.rakipler || []).forEach((competitor, index) => {\n  csvContent += `\"Rakipler\",\"Rank ${competitor.rank}\",\"${competitor.business_name} - ${competitor.address}\"\\n`;\n});\n\n// Add map data\n(data.harita_verileri || []).slice(0, 10).forEach((location, index) => {\n  csvContent += `\"Harita Verileri\",\"Location ${index + 1}\",\"${location.title} (${location.lat}, ${location.lng})\"\\n`;\n});\n\nreturn [{ json: { csv_content: csvContent } }];"
+      },
+      "id": "convert_to_csv",
+      "name": "Convert to CSV",
+      "type": "n8n-nodes-base.function",
+      "typeVersion": 1,
+      "position": [1940, 240]
+    },
+    {
+      "parameters": {
+        "operation": "write",
+        "fileName": "={{ 'advanced_scraped_data_' + $now.format('YYYY-MM-DD_HH-mm-ss') + '.csv' }}",
+        "fileContent": "={{ $json.csv_content }}",
+        "options": {}
+      },
+      "id": "save_csv",
+      "name": "Save to CSV",
+      "type": "n8n-nodes-base.readWriteFile",
+      "typeVersion": 1,
+      "position": [1940, 320]
+    },
+    {
+      "parameters": {
+        "functionCode": "// Create execution summary\nconst data = $input.first().json;\n\nconst summary = {\n  execution_time: new Date().toISOString(),\n  data_summary: {\n    ozet_bilgiler_count: Object.keys(data.ozet_bilgiler || {}).length,\n    rakipler_count: (data.rakipler || []).length,\n    harita_verileri_count: (data.harita_verileri || []).length,\n    api_competitors_available: !!data.api_verileri?.competitors,\n    api_analytics_count: (data.api_verileri?.analytics || []).length\n  },\n  status: 'completed',\n  files_created: [\n    `advanced_scraped_data_${new Date().toISOString().split('T')[0]}.json`,\n    `advanced_scraped_data_${new Date().toISOString().split('T')[0]}.csv`\n  ]\n};\n\nreturn [{ json: summary }];"
+      },
+      "id": "create_summary",
+      "name": "Create Summary",
+      "type": "n8n-nodes-base.function",
+      "typeVersion": 1,
+      "position": [1940, 400]
+    }
+  ],
+  "connections": {
+    "Start - Input URL": {
+      "main": [
+        [
+          {
+            "node": "HTTP Request - Get HTML",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "HTTP Request - Get HTML": {
+      "main": [
+        [
+          {
+            "node": "HTML Extract",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "HTML Extract": {
+      "main": [
+        [
+          {
+            "node": "Extract JS Data & Prepare API",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Extract JS Data & Prepare API": {
+      "main": [
+        [
+          {
+            "node": "API - Get Competitors",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Prepare Analytics Requests",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Parse HTML Data",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "API - Get Competitors": {
+      "main": [
+        [
+          {
+            "node": "Merge API Data",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Prepare Analytics Requests": {
+      "main": [
+        [
+          {
+            "node": "API - Analytics Data",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "API - Analytics Data": {
+      "main": [
+        [
+          {
+            "node": "Merge API Data",
+            "type": "main",
+            "index": 1
+          }
+        ]
+      ]
+    },
+    "Parse HTML Data": {
+      "main": [
+        [
+          {
+            "node": "Merge API Data",
+            "type": "main",
+            "index": 2
+          }
+        ]
+      ]
+    },
+    "Merge API Data": {
+      "main": [
+        [
+          {
+            "node": "Combine Final Data",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Combine Final Data": {
+      "main": [
+        [
+          {
+            "node": "Save to JSON",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Convert to CSV",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Create Summary",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Convert to CSV": {
+      "main": [
+        [
+          {
+            "node": "Save to CSV",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "pinData": {},
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "staticData": null,
+  "tags": ["scraping", "local-rank", "advanced"],
+  "triggerCount": 0,
+  "updatedAt": "2024-01-20T12:30:00.000Z",
+  "versionId": "2"
+}

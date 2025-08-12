@@ -1,0 +1,671 @@
+{
+  "name": "Local Rank Report Scraper - Comprehensive Implementation",
+  "nodes": [
+    {
+      "parameters": {
+        "values": {
+          "string": [
+            {
+              "name": "target_url",
+              "value": "https://www.local-rank.report/scan/97919fde-e478-4081-983f-7e0065b6b5bb"
+            },
+            {
+              "name": "user_agent",
+              "value": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
+            },
+            {
+              "name": "output_filename",
+              "value": "local_rank_data"
+            }
+          ],
+          "number": [
+            {
+              "name": "timeout_seconds",
+              "value": 30
+            },
+            {
+              "name": "retry_count",
+              "value": 3
+            },
+            {
+              "name": "rate_limit_ms",
+              "value": 2000
+            }
+          ],
+          "boolean": [
+            {
+              "name": "enable_api_calls",
+              "value": true
+            },
+            {
+              "name": "save_raw_html",
+              "value": false
+            },
+            {
+              "name": "enable_detailed_logging",
+              "value": true
+            }
+          ]
+        }
+      },
+      "id": "a1b2c3d4-e5f6-g7h8-i9j0-k1l2m3n4o5p6",
+      "name": "Configuration",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.2,
+      "position": [220, 300]
+    },
+    {
+      "parameters": {
+        "functionCode": "// Initialize scraper session with comprehensive logging\nconst config = $input.first().json;\nconst sessionId = `session_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;\n\nconst session = {\n  session_id: sessionId,\n  started_at: new Date().toISOString(),\n  config: {\n    target_url: config.target_url,\n    user_agent: config.user_agent,\n    timeout_seconds: config.timeout_seconds,\n    retry_count: config.retry_count,\n    rate_limit_ms: config.rate_limit_ms,\n    enable_api_calls: config.enable_api_calls,\n    save_raw_html: config.save_raw_html,\n    enable_detailed_logging: config.enable_detailed_logging\n  },\n  steps: {\n    initialization: {\n      status: 'completed',\n      timestamp: new Date().toISOString(),\n      details: 'Session initialized successfully'\n    },\n    http_request: { status: 'pending' },\n    html_parsing: { status: 'pending' },\n    js_extraction: { status: 'pending' },\n    api_calls: { status: 'pending' },\n    data_assembly: { status: 'pending' },\n    export: { status: 'pending' }\n  },\n  scraped_data: {\n    scan_information: {},\n    rank_summary: {},\n    competitors: [],\n    sponsored_listings: [],\n    detailed_results: [],\n    map_data: [],\n    javascript_data: {},\n    api_data: {}\n  },\n  metrics: {\n    total_elements_found: 0,\n    total_api_calls: 0,\n    total_execution_time_ms: 0,\n    data_quality_score: 0\n  },\n  errors: [],\n  warnings: []\n};\n\nif (config.enable_detailed_logging) {\n  console.log(`🚀 Scraper session started: ${sessionId}`);\n  console.log('📋 Configuration:', JSON.stringify(session.config, null, 2));\n}\n\nreturn [{ json: session }];"
+      },
+      "id": "b2c3d4e5-f6g7-h8i9-j0k1-l2m3n4o5p6q7",
+      "name": "Initialize Session",
+      "type": "n8n-nodes-base.function",
+      "typeVersion": 1,
+      "position": [420, 300]
+    },
+    {
+      "parameters": {
+        "amount": "={{ $json.config.rate_limit_ms }}",
+        "unit": "milliseconds"
+      },
+      "id": "c3d4e5f6-g7h8-i9j0-k1l2-m3n4o5p6q7r8",
+      "name": "Rate Limit",
+      "type": "n8n-nodes-base.wait",
+      "typeVersion": 1,
+      "position": [620, 300]
+    },
+    {
+      "parameters": {
+        "url": "={{ $json.config.target_url }}",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "User-Agent",
+              "value": "={{ $json.config.user_agent }}"
+            },
+            {
+              "name": "Accept",
+              "value": "text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8,application/signed-exchange;v=b3;q=0.7"
+            },
+            {
+              "name": "Accept-Language",
+              "value": "en-US,en;q=0.9,tr;q=0.8"
+            },
+            {
+              "name": "Accept-Encoding",
+              "value": "gzip, deflate, br"
+            },
+            {
+              "name": "Cache-Control",
+              "value": "no-cache"
+            },
+            {
+              "name": "Pragma",
+              "value": "no-cache"
+            },
+            {
+              "name": "Sec-Ch-Ua",
+              "value": "\"Not_A Brand\";v=\"8\", \"Chromium\";v=\"120\", \"Google Chrome\";v=\"120\""
+            },
+            {
+              "name": "Sec-Ch-Ua-Mobile",
+              "value": "?0"
+            },
+            {
+              "name": "Sec-Ch-Ua-Platform",
+              "value": "\"Windows\""
+            },
+            {
+              "name": "Sec-Fetch-Dest",
+              "value": "document"
+            },
+            {
+              "name": "Sec-Fetch-Mode",
+              "value": "navigate"
+            },
+            {
+              "name": "Sec-Fetch-Site",
+              "value": "none"
+            },
+            {
+              "name": "Sec-Fetch-User",
+              "value": "?1"
+            },
+            {
+              "name": "Upgrade-Insecure-Requests",
+              "value": "1"
+            }
+          ]
+        },
+        "options": {
+          "timeout": "={{ $json.config.timeout_seconds * 1000 }}",
+          "retry": {
+            "retry": {
+              "retryOnHttpStatusCodes": [
+                {
+                  "values": "408,429,500,502,503,504,520,521,522,523,524"
+                }
+              ],
+              "retryCount": "={{ $json.config.retry_count }}",
+              "retryInterval": 3000
+            }
+          },
+          "redirect": {
+            "redirect": {
+              "followRedirects": true,
+              "maxRedirects": 5
+            }
+          },
+          "response": {
+            "response": {
+              "fullResponse": true,
+              "neverError": true
+            }
+          }
+        }
+      },
+      "id": "d4e5f6g7-h8i9-j0k1-l2m3-n4o5p6q7r8s9",
+      "name": "HTTP Request - Main Page",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.1,
+      "position": [820, 300]
+    },
+    {
+      "parameters": {
+        "functionCode": "// Comprehensive HTTP response validation and processing\nconst session = $input.first().json;\nconst httpResponse = $input.last().json;\n\nconst stepStart = Date.now();\nsession.steps.http_request.timestamp = new Date().toISOString();\n\ntry {\n  // Validate HTTP response\n  if (!httpResponse) {\n    throw new Error('No HTTP response received');\n  }\n\n  // Check status code\n  const statusCode = httpResponse.statusCode || 200;\n  if (statusCode >= 400) {\n    throw new Error(`HTTP ${statusCode}: ${httpResponse.statusMessage || 'Request failed'}`);\n  }\n\n  // Extract response body\n  let htmlContent = httpResponse.body || httpResponse.data || httpResponse;\n  if (typeof htmlContent !== 'string') {\n    if (typeof htmlContent === 'object' && htmlContent.toString) {\n      htmlContent = htmlContent.toString();\n    } else {\n      throw new Error('Invalid response format - expected HTML string');\n    }\n  }\n\n  // Validate HTML content\n  if (htmlContent.length < 1000) {\n    throw new Error(`Response too short (${htmlContent.length} chars) - possible error page`);\n  }\n\n  // Check for common error indicators\n  const errorIndicators = [\n    '404 Not Found',\n    '403 Forbidden',\n    '500 Internal Server Error',\n    'Access Denied',\n    'Page Not Found',\n    'captcha',\n    'robot',\n    'blocked',\n    'rate limit',\n    'too many requests'\n  ];\n\n  const foundErrors = errorIndicators.filter(indicator => \n    htmlContent.toLowerCase().includes(indicator.toLowerCase())\n  );\n\n  if (foundErrors.length > 0) {\n    throw new Error(`Error indicators found: ${foundErrors.join(', ')}`);\n  }\n\n  // Validate HTML structure\n  const hasHtmlTag = htmlContent.includes('<html');\n  const hasBodyTag = htmlContent.includes('<body');\n  const hasScriptTags = htmlContent.includes('<script');\n  const hasTables = htmlContent.includes('<table');\n\n  if (!hasHtmlTag || !hasBodyTag) {\n    session.warnings.push('HTML structure seems incomplete - missing html or body tags');\n  }\n\n  // Success metrics\n  session.steps.http_request.status = 'completed';\n  session.steps.http_request.details = {\n    status_code: statusCode,\n    content_length: htmlContent.length,\n    has_html_structure: hasHtmlTag && hasBodyTag,\n    has_script_tags: hasScriptTags,\n    has_tables: hasTables,\n    response_headers: httpResponse.headers || {},\n    execution_time_ms: Date.now() - stepStart\n  };\n\n  // Add raw HTML to session if enabled\n  if (session.config.save_raw_html) {\n    session.raw_html = htmlContent;\n  }\n\n  if (session.config.enable_detailed_logging) {\n    console.log('✅ HTTP request completed successfully');\n    console.log(`📊 Response size: ${htmlContent.length} bytes`);\n    console.log(`⏱️ Execution time: ${Date.now() - stepStart}ms`);\n  }\n\n  return [{ json: { ...session, html_content: htmlContent } }];\n\n} catch (error) {\n  session.steps.http_request.status = 'failed';\n  session.steps.http_request.details = {\n    error: error.message,\n    execution_time_ms: Date.now() - stepStart\n  };\n  session.errors.push({\n    step: 'http_request',\n    error: error.message,\n    timestamp: new Date().toISOString()\n  });\n\n  console.error('❌ HTTP request failed:', error.message);\n  throw error;\n}"
+      },
+      "id": "e5f6g7h8-i9j0-k1l2-m3n4-o5p6q7r8s9t0",
+      "name": "Validate HTTP Response",
+      "type": "n8n-nodes-base.function",
+      "typeVersion": 1,
+      "position": [1020, 300]
+    },
+    {
+      "parameters": {
+        "dataPropertyName": "html_content",
+        "extractionValues": {
+          "values": [
+            {
+              "key": "page_title",
+              "cssSelector": "title",
+              "returnValue": "text"
+            },
+            {
+              "key": "meta_description",
+              "cssSelector": "meta[name='description']",
+              "returnValue": "attribute",
+              "attributeName": "content"
+            },
+            {
+              "key": "scan_info_table",
+              "cssSelector": "div.card:contains('Scan Information') table, div.card-body table:first-of-type, table:contains('Business Name'), table:contains('Address')",
+              "returnValue": "html"
+            },
+            {
+              "key": "rank_summary_table",
+              "cssSelector": "div.card:contains('Rank Summary') table, div.card-body table:nth-of-type(2), table:contains('Average Position'), table:contains('Best Position')",
+              "returnValue": "html"
+            },
+            {
+              "key": "competitors_table",
+              "cssSelector": "div.col-md-12 table, table:contains('Rank'), table:contains('Competitor'), div.competitors table, .competitors-table",
+              "returnValue": "html"
+            },
+            {
+              "key": "sponsored_listings_section",
+              "cssSelector": "div.sponsored-listings, .sponsored-results, div:contains('Sponsored'), div:contains('Ad'), .ads-section",
+              "returnValue": "html"
+            },
+            {
+              "key": "detailed_results_section",
+              "cssSelector": "div.detailed-results, .results-section, div:contains('Results'), .search-results",
+              "returnValue": "html"
+            },
+            {
+              "key": "all_scripts",
+              "cssSelector": "script",
+              "returnValue": "html"
+            },
+            {
+              "key": "all_tables",
+              "cssSelector": "table",
+              "returnValue": "html"
+            },
+            {
+              "key": "card_sections",
+              "cssSelector": "div.card, .card-body, .info-card",
+              "returnValue": "html"
+            }
+          ]
+        }
+      },
+      "id": "f6g7h8i9-j0k1-l2m3-n4o5-p6q7r8s9t0u1",
+      "name": "HTML Extract",
+      "type": "n8n-nodes-base.htmlExtract",
+      "typeVersion": 1,
+      "position": [1220, 300]
+    },
+    {
+      "parameters": {
+        "functionCode": "// Comprehensive HTML parsing with intelligent fallbacks\nconst session = $input.first().json;\nconst extractedHtml = $input.last().json;\n\nconst stepStart = Date.now();\nsession.steps.html_parsing.timestamp = new Date().toISOString();\n\nconst cheerio = require('cheerio');\n\ntry {\n  // Parse scan information with multiple fallback strategies\n  function parseScanInformation(htmlElements) {\n    const scanInfo = {};\n    let parsed = false;\n\n    // Strategy 1: Direct table parsing\n    if (htmlElements.scan_info_table) {\n      const $ = cheerio.load(htmlElements.scan_info_table);\n      $('tr').each((i, row) => {\n        const cells = $(row).find('td, th');\n        if (cells.length >= 2) {\n          const key = $(cells[0]).text().trim().replace(/[:\\s]+$/, '');\n          const value = $(cells[1]).text().trim();\n          if (key && value) {\n            scanInfo[key] = value;\n            parsed = true;\n          }\n        }\n      });\n    }\n\n    // Strategy 2: Parse all tables if scan_info_table not found\n    if (!parsed && htmlElements.all_tables) {\n      const $ = cheerio.load(htmlElements.all_tables);\n      $('table').each((tableIndex, table) => {\n        const tableText = $(table).text().toLowerCase();\n        if (tableText.includes('business') || tableText.includes('address') || tableText.includes('phone')) {\n          $(table).find('tr').each((i, row) => {\n            const cells = $(row).find('td, th');\n            if (cells.length >= 2) {\n              const key = $(cells[0]).text().trim().replace(/[:\\s]+$/, '');\n              const value = $(cells[1]).text().trim();\n              if (key && value && key.length < 50) {\n                scanInfo[key] = value;\n                parsed = true;\n              }\n            }\n          });\n        }\n      });\n    }\n\n    // Strategy 3: Card-based parsing\n    if (!parsed && htmlElements.card_sections) {\n      const $ = cheerio.load(htmlElements.card_sections);\n      $('.card, .card-body, .info-card').each((i, card) => {\n        const cardText = $(card).text();\n        if (cardText.toLowerCase().includes('scan') || cardText.toLowerCase().includes('business')) {\n          $(card).find('table tr, .info-row, .data-row').each((j, row) => {\n            const cells = $(row).find('td, th, .label, .value');\n            if (cells.length >= 2) {\n              const key = $(cells[0]).text().trim().replace(/[:\\s]+$/, '');\n              const value = $(cells[1]).text().trim();\n              if (key && value) {\n                scanInfo[key] = value;\n                parsed = true;\n              }\n            }\n          });\n        }\n      });\n    }\n\n    return { data: scanInfo, success: parsed };\n  }\n\n  // Parse rank summary with multiple strategies\n  function parseRankSummary(htmlElements) {\n    const rankSummary = {};\n    let parsed = false;\n\n    if (htmlElements.rank_summary_table) {\n      const $ = cheerio.load(htmlElements.rank_summary_table);\n      $('tr').each((i, row) => {\n        const cells = $(row).find('td, th');\n        if (cells.length >= 2) {\n          const key = $(cells[0]).text().trim().replace(/[:\\s]+$/, '');\n          const value = $(cells[1]).text().trim();\n          if (key && value) {\n            rankSummary[key] = value;\n            parsed = true;\n          }\n        }\n      });\n    }\n\n    // Fallback: Look for rank-related data in all tables\n    if (!parsed && htmlElements.all_tables) {\n      const $ = cheerio.load(htmlElements.all_tables);\n      $('table').each((tableIndex, table) => {\n        const tableText = $(table).text().toLowerCase();\n        if (tableText.includes('position') || tableText.includes('rank') || tableText.includes('average')) {\n          $(table).find('tr').each((i, row) => {\n            const cells = $(row).find('td, th');\n            if (cells.length >= 2) {\n              const key = $(cells[0]).text().trim().replace(/[:\\s]+$/, '');\n              const value = $(cells[1]).text().trim();\n              if (key && value && (key.toLowerCase().includes('position') || key.toLowerCase().includes('rank'))) {\n                rankSummary[key] = value;\n                parsed = true;\n              }\n            }\n          });\n        }\n      });\n    }\n\n    return { data: rankSummary, success: parsed };\n  }\n\n  // Parse competitors with advanced extraction\n  function parseCompetitors(htmlElements) {\n    const competitors = [];\n    let parsed = false;\n\n    if (htmlElements.competitors_table) {\n      const $ = cheerio.load(htmlElements.competitors_table);\n      \n      // Find the table with competitor data\n      $('table').each((tableIndex, table) => {\n        const headers = [];\n        $(table).find('thead tr th, tr:first-child td, tr:first-child th').each((i, header) => {\n          headers.push($(header).text().trim().toLowerCase());\n        });\n\n        // Check if this looks like a competitors table\n        const hasRankColumn = headers.some(h => h.includes('rank') || h.includes('#'));\n        const hasBusinessColumn = headers.some(h => h.includes('business') || h.includes('name') || h.includes('company'));\n        \n        if (hasRankColumn || hasBusinessColumn || headers.length >= 3) {\n          $(table).find('tbody tr, tr').each((i, row) => {\n            if (i === 0 && $(row).find('th').length > 0) return; // Skip header row\n            \n            const cells = $(row).find('td, th');\n            if (cells.length >= 2) {\n              const competitor = {\n                rank: $(cells[0]).text().trim() || (i + 1).toString(),\n                business_name: $(cells[1]).text().trim() || 'N/A',\n                address: cells.length > 2 ? $(cells[2]).text().trim() : 'N/A',\n                phone: cells.length > 3 ? $(cells[3]).text().trim() : 'N/A',\n                website: cells.length > 4 ? $(cells[4]).text().trim() : 'N/A',\n                additional_info: cells.length > 5 ? $(cells[5]).text().trim() : 'N/A'\n              };\n              \n              if (competitor.business_name !== 'N/A' && competitor.business_name.length > 0) {\n                competitors.push(competitor);\n                parsed = true;\n              }\n            }\n          });\n        }\n      });\n    }\n\n    // Fallback: Search all tables for competitor-like data\n    if (!parsed && htmlElements.all_tables) {\n      const $ = cheerio.load(htmlElements.all_tables);\n      $('table').each((tableIndex, table) => {\n        const tableText = $(table).text().toLowerCase();\n        if (tableText.includes('competitor') || tableText.includes('business') || tableText.includes('company')) {\n          $(table).find('tr').each((i, row) => {\n            const cells = $(row).find('td');\n            if (cells.length >= 2) {\n              const firstCell = $(cells[0]).text().trim();\n              const secondCell = $(cells[1]).text().trim();\n              \n              // Check if this looks like competitor data\n              if (firstCell.match(/^\\d+$/) || secondCell.length > 5) {\n                competitors.push({\n                  rank: firstCell.match(/^\\d+$/) ? firstCell : (i + 1).toString(),\n                  business_name: firstCell.match(/^\\d+$/) ? secondCell : firstCell,\n                  address: cells.length > 2 ? $(cells[2]).text().trim() : 'N/A'\n                });\n                parsed = true;\n              }\n            }\n          });\n        }\n      });\n    }\n\n    return { data: competitors.slice(0, 50), success: parsed }; // Limit to 50 competitors\n  }\n\n  // Parse sponsored listings\n  function parseSponsoredListings(htmlElements) {\n    const sponsoredListings = [];\n    let parsed = false;\n\n    if (htmlElements.sponsored_listings_section) {\n      const $ = cheerio.load(htmlElements.sponsored_listings_section);\n      \n      $('div, li, .listing, .ad').each((i, element) => {\n        const text = $(element).text().trim();\n        const title = $(element).find('h1, h2, h3, h4, .title, .name').first().text().trim();\n        const description = $(element).find('p, .description, .summary').first().text().trim();\n        \n        if (title || (text.length > 10 && text.length < 500)) {\n          sponsoredListings.push({\n            title: title || text.substring(0, 100),\n            description: description || text,\n            position: i + 1\n          });\n          parsed = true;\n        }\n      });\n    }\n\n    return { data: sponsoredListings, success: parsed };\n  }\n\n  // Execute all parsing functions\n  const scanInfoResult = parseScanInformation(extractedHtml);\n  const rankSummaryResult = parseRankSummary(extractedHtml);\n  const competitorsResult = parseCompetitors(extractedHtml);\n  const sponsoredResult = parseSponsoredListings(extractedHtml);\n\n  // Update session data\n  session.scraped_data.scan_information = scanInfoResult.data;\n  session.scraped_data.rank_summary = rankSummaryResult.data;\n  session.scraped_data.competitors = competitorsResult.data;\n  session.scraped_data.sponsored_listings = sponsoredResult.data;\n\n  // Calculate metrics\n  session.metrics.total_elements_found = \n    Object.keys(scanInfoResult.data).length +\n    Object.keys(rankSummaryResult.data).length +\n    competitorsResult.data.length +\n    sponsoredResult.data.length;\n\n  // Update step status\n  session.steps.html_parsing.status = 'completed';\n  session.steps.html_parsing.details = {\n    scan_info_parsed: scanInfoResult.success,\n    scan_info_fields: Object.keys(scanInfoResult.data).length,\n    rank_summary_parsed: rankSummaryResult.success,\n    rank_summary_fields: Object.keys(rankSummaryResult.data).length,\n    competitors_parsed: competitorsResult.success,\n    competitors_count: competitorsResult.data.length,\n    sponsored_parsed: sponsoredResult.success,\n    sponsored_count: sponsoredResult.data.length,\n    execution_time_ms: Date.now() - stepStart\n  };\n\n  // Add warnings for failed parsing\n  if (!scanInfoResult.success) {\n    session.warnings.push('Scan information parsing failed - using fallback extraction');\n  }\n  if (!rankSummaryResult.success) {\n    session.warnings.push('Rank summary parsing failed - using fallback extraction');\n  }\n  if (!competitorsResult.success) {\n    session.warnings.push('Competitors parsing failed - using fallback extraction');\n  }\n\n  if (session.config.enable_detailed_logging) {\n    console.log('✅ HTML parsing completed');\n    console.log(`📊 Elements found: ${session.metrics.total_elements_found}`);\n    console.log(`⏱️ Execution time: ${Date.now() - stepStart}ms`);\n  }\n\n  return [{ json: { ...session, extracted_html: extractedHtml } }];\n\n} catch (error) {\n  session.steps.html_parsing.status = 'failed';\n  session.steps.html_parsing.details = {\n    error: error.message,\n    execution_time_ms: Date.now() - stepStart\n  };\n  session.errors.push({\n    step: 'html_parsing',\n    error: error.message,\n    timestamp: new Date().toISOString()\n  });\n\n  console.error('❌ HTML parsing failed:', error.message);\n  throw error;\n}"
+      },
+      "id": "g7h8i9j0-k1l2-m3n4-o5p6-q7r8s9t0u1v2",
+      "name": "Parse HTML Data",
+      "type": "n8n-nodes-base.function",
+      "typeVersion": 1,
+      "position": [1420, 300]
+    },
+    {
+      "parameters": {
+        "functionCode": "// Advanced JavaScript data extraction with multiple regex patterns\nconst session = $input.first().json;\nconst extractedHtml = session.extracted_html;\n\nconst stepStart = Date.now();\nsession.steps.js_extraction.timestamp = new Date().toISOString();\n\nconst cheerio = require('cheerio');\n\ntry {\n  const jsData = {\n    pinz: [],\n    scan_guid: null,\n    place_id: null,\n    business_id: null,\n    search_id: null,\n    map_center: null,\n    api_endpoints: [],\n    raw_js_variables: {}\n  };\n\n  if (!extractedHtml.all_scripts) {\n    throw new Error('No script tags found in HTML');\n  }\n\n  const $ = cheerio.load(extractedHtml.all_scripts);\n  let scriptsProcessed = 0;\n  let dataExtractionSuccess = false;\n\n  $('script').each((scriptIndex, script) => {\n    scriptsProcessed++;\n    const scriptContent = $(script).html() || $(script).text() || '';\n    \n    if (!scriptContent || scriptContent.length < 10) return;\n\n    // Extract pinz array with multiple patterns\n    const pinzPatterns = [\n      /var\\s+pinz\\s*=\\s*(\\[.*?\\]);/gs,\n      /pinz\\s*=\\s*(\\[.*?\\]);/gs,\n      /['\"]pinz['\"]\\s*:\\s*(\\[.*?\\])/gs,\n      /pinz['\"]?\\s*[:=]\\s*(\\[.*?\\])/gs\n    ];\n\n    for (const pattern of pinzPatterns) {\n      const pinzMatch = scriptContent.match(pattern);\n      if (pinzMatch && pinzMatch[1]) {\n        try {\n          const pinzArray = JSON.parse(pinzMatch[1]);\n          if (Array.isArray(pinzArray) && pinzArray.length > 0) {\n            jsData.pinz = pinzArray;\n            dataExtractionSuccess = true;\n            break;\n          }\n        } catch (e) {\n          // Try to fix common JSON issues\n          try {\n            const fixedJson = pinzMatch[1]\n              .replace(/'/g, '\"')\n              .replace(/([{,])(\\w+):/g, '$1\"$2\":')\n              .replace(/:\\s*([^,}\\]]+)([,}\\]])/g, ':\"$1\"$2')\n              .replace(/:\\s*\"\"/g, ':null')\n              .replace(/,\\s*}/g, '}')\n              .replace(/,\\s*\\]/g, ']');\n            const pinzArray = JSON.parse(fixedJson);\n            if (Array.isArray(pinzArray)) {\n              jsData.pinz = pinzArray;\n              dataExtractionSuccess = true;\n              break;\n            }\n          } catch (e2) {\n            console.log(`Failed to parse pinz array: ${e2.message}`);\n          }\n        }\n      }\n    }\n\n    // Extract scan_guid with multiple patterns\n    const scanGuidPatterns = [\n      /scan_guid['\"]?\\s*[:=]\\s*['\"]([^'\"]+)['\"]/gi,\n      /['\"]scan_guid['\"]\\s*:\\s*['\"]([^'\"]+)['\"]/gi,\n      /scanGuid['\"]?\\s*[:=]\\s*['\"]([^'\"]+)['\"]/gi,\n      /scan[_-]?guid['\"]?\\s*[:=]\\s*['\"]([^'\"]+)['\"]/gi\n    ];\n\n    for (const pattern of scanGuidPatterns) {\n      const match = pattern.exec(scriptContent);\n      if (match && match[1] && match[1].length > 10) {\n        jsData.scan_guid = match[1];\n        dataExtractionSuccess = true;\n        break;\n      }\n    }\n\n    // Extract place_id\n    const placeIdPatterns = [\n      /place_id['\"]?\\s*[:=]\\s*['\"]([^'\"]+)['\"]/gi,\n      /placeId['\"]?\\s*[:=]\\s*['\"]([^'\"]+)['\"]/gi,\n      /['\"]place_id['\"]\\s*:\\s*['\"]([^'\"]+)['\"]/gi\n    ];\n\n    for (const pattern of placeIdPatterns) {\n      const match = pattern.exec(scriptContent);\n      if (match && match[1]) {\n        jsData.place_id = match[1];\n        break;\n      }\n    }\n\n    // Extract business_id\n    const businessIdPatterns = [\n      /business_id['\"]?\\s*[:=]\\s*['\"]([^'\"]+)['\"]/gi,\n      /businessId['\"]?\\s*[:=]\\s*['\"]([^'\"]+)['\"]/gi\n    ];\n\n    for (const pattern of businessIdPatterns) {\n      const match = pattern.exec(scriptContent);\n      if (match && match[1]) {\n        jsData.business_id = match[1];\n        break;\n      }\n    }\n\n    // Extract search_id\n    const searchIdPatterns = [\n      /search_id['\"]?\\s*[:=]\\s*['\"]([^'\"]+)['\"]/gi,\n      /searchId['\"]?\\s*[:=]\\s*['\"]([^'\"]+)['\"]/gi\n    ];\n\n    for (const pattern of searchIdPatterns) {\n      const match = pattern.exec(scriptContent);\n      if (match && match[1]) {\n        jsData.search_id = match[1];\n        break;\n      }\n    }\n\n    // Extract map center coordinates\n    const mapCenterPatterns = [\n      /map[_-]?center['\"]?\\s*[:=]\\s*\\{[^}]*lat['\"]?\\s*:\\s*([\\d.-]+)[^}]*lng['\"]?\\s*:\\s*([\\d.-]+)/gi,\n      /center['\"]?\\s*[:=]\\s*\\{[^}]*lat['\"]?\\s*:\\s*([\\d.-]+)[^}]*lng['\"]?\\s*:\\s*([\\d.-]+)/gi,\n      /lat['\"]?\\s*:\\s*([\\d.-]+)[^,}]*lng['\"]?\\s*:\\s*([\\d.-]+)/gi\n    ];\n\n    for (const pattern of mapCenterPatterns) {\n      const match = pattern.exec(scriptContent);\n      if (match && match[1] && match[2]) {\n        jsData.map_center = {\n          lat: parseFloat(match[1]),\n          lng: parseFloat(match[2])\n        };\n        break;\n      }\n    }\n\n    // Extract API endpoints\n    const apiPatterns = [\n      /['\"]([^'\"]*\\/api\\/[^'\"]*)['\"]|['\"]([^'\"]*\\/analytics\\/[^'\"]*)['\"]|['\"]([^'\"]*\\/scans\\/[^'\"]*)['\"]|['\"]([^'\"]*\\/competitors[^'\"]*)['\"]|['\"]([^'\"]*\\/results[^'\"]*)['\"]|['\"]([^'\"]*\\/data[^'\"]*)['\"]|['\"]([^'\"]*\\/search[^'\"]*)['\"]/gi\n    ];\n\n    let apiMatch;\n    while ((apiMatch = apiPatterns.exec(scriptContent)) !== null) {\n      const url = apiMatch[1] || apiMatch[2] || apiMatch[3] || apiMatch[4] || apiMatch[5] || apiMatch[6] || apiMatch[7];\n      if (url && url.length > 5 && !jsData.api_endpoints.includes(url)) {\n        jsData.api_endpoints.push(url);\n      }\n    }\n\n    // Extract common JavaScript variables\n    const variablePatterns = [\n      /var\\s+(\\w+)\\s*=\\s*(['\"][^'\"]*['\"]|\\d+|true|false|null)/gi,\n      /const\\s+(\\w+)\\s*=\\s*(['\"][^'\"]*['\"]|\\d+|true|false|null)/gi,\n      /let\\s+(\\w+)\\s*=\\s*(['\"][^'\"]*['\"]|\\d+|true|false|null)/gi\n    ];\n\n    for (const pattern of variablePatterns) {\n      let varMatch;\n      while ((varMatch = pattern.exec(scriptContent)) !== null) {\n        const varName = varMatch[1];\n        const varValue = varMatch[2];\n        if (varName && varValue && varName.length < 50) {\n          jsData.raw_js_variables[varName] = varValue;\n        }\n      }\n    }\n  });\n\n  // Validate extracted data\n  if (!dataExtractionSuccess) {\n    session.warnings.push('JavaScript data extraction failed - no critical data found');\n  }\n\n  // Process pinz data for map information\n  if (jsData.pinz && jsData.pinz.length > 0) {\n    session.scraped_data.map_data = jsData.pinz.map((pin, index) => ({\n      index: index,\n      lat: pin.lat || pin.latitude || 0,\n      lng: pin.lng || pin.longitude || 0,\n      title: pin.title || pin.name || pin.business_name || `Location ${index + 1}`,\n      address: pin.address || pin.location || 'N/A',\n      url: pin.url || pin.api_url || pin.endpoint || 'N/A',\n      rank: pin.rank || pin.position || index + 1,\n      distance: pin.distance || 'N/A',\n      additional_data: {\n        phone: pin.phone || pin.tel || 'N/A',\n        website: pin.website || pin.web || 'N/A',\n        rating: pin.rating || pin.stars || 'N/A',\n        reviews: pin.reviews || pin.review_count || 'N/A'\n      }\n    }));\n  }\n\n  // Update session\n  session.scraped_data.javascript_data = jsData;\n  session.steps.js_extraction.status = 'completed';\n  session.steps.js_extraction.details = {\n    scripts_processed: scriptsProcessed,\n    pinz_count: jsData.pinz.length,\n    scan_guid_found: !!jsData.scan_guid,\n    place_id_found: !!jsData.place_id,\n    business_id_found: !!jsData.business_id,\n    search_id_found: !!jsData.search_id,\n    map_center_found: !!jsData.map_center,\n    api_endpoints_found: jsData.api_endpoints.length,\n    js_variables_found: Object.keys(jsData.raw_js_variables).length,\n    execution_time_ms: Date.now() - stepStart\n  };\n\n  if (session.config.enable_detailed_logging) {\n    console.log('✅ JavaScript extraction completed');\n    console.log(`📊 Pinz data: ${jsData.pinz.length} locations`);\n    console.log(`🔑 Scan GUID: ${jsData.scan_guid ? 'Found' : 'Not found'}`);\n    console.log(`🌍 Map center: ${jsData.map_center ? 'Found' : 'Not found'}`);\n    console.log(`🔗 API endpoints: ${jsData.api_endpoints.length}`);\n    console.log(`⏱️ Execution time: ${Date.now() - stepStart}ms`);\n  }\n\n  return [{ json: session }];\n\n} catch (error) {\n  session.steps.js_extraction.status = 'failed';\n  session.steps.js_extraction.details = {\n    error: error.message,\n    execution_time_ms: Date.now() - stepStart\n  };\n  session.errors.push({\n    step: 'js_extraction',\n    error: error.message,\n    timestamp: new Date().toISOString()\n  });\n\n  console.error('❌ JavaScript extraction failed:', error.message);\n  throw error;\n}"
+      },
+      "id": "h8i9j0k1-l2m3-n4o5-p6q7-r8s9t0u1v2w3",
+      "name": "Extract JavaScript Data",
+      "type": "n8n-nodes-base.function",
+      "typeVersion": 1,
+      "position": [1620, 300]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict"
+          },
+          "conditions": [
+            {
+              "id": "a1b2c3d4-e5f6-g7h8-i9j0-k1l2m3n4o5p6",
+              "leftValue": "={{ $json.config.enable_api_calls }}",
+              "rightValue": true,
+              "operator": {
+                "type": "boolean",
+                "operation": "equals"
+              }
+            },
+            {
+              "id": "b2c3d4e5-f6g7-h8i9-j0k1-l2m3n4o5p6q7",
+              "leftValue": "={{ $json.scraped_data.javascript_data.scan_guid }}",
+              "rightValue": "",
+              "operator": {
+                "type": "string",
+                "operation": "notEmpty"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "i9j0k1l2-m3n4-o5p6-q7r8-s9t0u1v2w3x4",
+      "name": "Check API Availability",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [1820, 300]
+    },
+    {
+      "parameters": {
+        "amount": "={{ $json.config.rate_limit_ms }}",
+        "unit": "milliseconds"
+      },
+      "id": "j0k1l2m3-n4o5-p6q7-r8s9-t0u1v2w3x4y5",
+      "name": "API Rate Limit",
+      "type": "n8n-nodes-base.wait",
+      "typeVersion": 1,
+      "position": [2020, 200]
+    },
+    {
+      "parameters": {
+        "url": "={{ $json.scraped_data.javascript_data.scan_guid ? ($json.config.target_url.split('/scan/')[0] + '/scans/get-competitors-list?scan_guid=' + $json.scraped_data.javascript_data.scan_guid) : '' }}",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "User-Agent",
+              "value": "={{ $json.config.user_agent }}"
+            },
+            {
+              "name": "Accept",
+              "value": "application/json, text/plain, */*"
+            },
+            {
+              "name": "Accept-Language",
+              "value": "en-US,en;q=0.9"
+            },
+            {
+              "name": "Referer",
+              "value": "={{ $json.config.target_url }}"
+            },
+            {
+              "name": "X-Requested-With",
+              "value": "XMLHttpRequest"
+            }
+          ]
+        },
+        "options": {
+          "timeout": "={{ $json.config.timeout_seconds * 1000 }}",
+          "retry": {
+            "retry": {
+              "retryOnHttpStatusCodes": [
+                {
+                  "values": "429,500,502,503,504"
+                }
+              ],
+              "retryCount": "={{ $json.config.retry_count }}",
+              "retryInterval": 2000
+            }
+          },
+          "response": {
+            "response": {
+              "neverError": true,
+              "fullResponse": true
+            }
+          }
+        }
+      },
+      "id": "k1l2m3n4-o5p6-q7r8-s9t0-u1v2w3x4y5z6",
+      "name": "API Call - Competitors",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.1,
+      "position": [2220, 200]
+    },
+    {
+      "parameters": {
+        "functionCode": "// Skip API calls and continue with data assembly\nconst session = $input.first().json;\n\nsession.steps.api_calls = {\n  status: 'skipped',\n  timestamp: new Date().toISOString(),\n  details: {\n    reason: session.config.enable_api_calls ? 'No scan_guid found for API calls' : 'API calls disabled in configuration',\n    scan_guid_available: !!session.scraped_data.javascript_data.scan_guid\n  }\n};\n\nsession.scraped_data.api_data = {\n  competitors: null,\n  analytics: [],\n  status: 'skipped'\n};\n\nif (session.config.enable_detailed_logging) {\n  console.log('⏭️ API calls skipped');\n  console.log(`📋 Reason: ${session.steps.api_calls.details.reason}`);\n}\n\nreturn [{ json: session }];"
+      },
+      "id": "l2m3n4o5-p6q7-r8s9-t0u1-v2w3x4y5z6a7",
+      "name": "Skip API Calls",
+      "type": "n8n-nodes-base.function",
+      "typeVersion": 1,
+      "position": [2020, 400]
+    },
+    {
+      "parameters": {
+        "functionCode": "// Process API response and prepare for additional API calls\nconst session = $input.first().json;\nconst apiResponse = $input.last().json;\n\nconst stepStart = Date.now();\nsession.steps.api_calls = {\n  timestamp: new Date().toISOString(),\n  status: 'in_progress'\n};\n\nsession.metrics.total_api_calls = 1;\n\ntry {\n  // Process competitors API response\n  let competitorsData = null;\n  if (apiResponse && apiResponse.statusCode && apiResponse.statusCode < 400) {\n    const responseBody = apiResponse.body || apiResponse.data || apiResponse;\n    \n    if (typeof responseBody === 'string') {\n      try {\n        competitorsData = JSON.parse(responseBody);\n      } catch (e) {\n        session.warnings.push(`Failed to parse competitors API response: ${e.message}`);\n      }\n    } else if (typeof responseBody === 'object') {\n      competitorsData = responseBody;\n    }\n  } else {\n    session.warnings.push(`Competitors API failed with status: ${apiResponse?.statusCode || 'unknown'}`);\n  }\n\n  // Initialize API data\n  session.scraped_data.api_data = {\n    competitors: competitorsData,\n    analytics: [],\n    additional_endpoints: [],\n    status: 'partial'\n  };\n\n  // Prepare analytics API calls from pinz data\n  const jsData = session.scraped_data.javascript_data;\n  const baseUrl = session.config.target_url.split('/scan/')[0];\n  const analyticsRequests = [];\n\n  if (jsData.pinz && jsData.pinz.length > 0) {\n    // Limit to first 10 locations for performance\n    const limitedPinz = jsData.pinz.slice(0, 10);\n    \n    limitedPinz.forEach((pin, index) => {\n      if (pin.url) {\n        const fullUrl = pin.url.startsWith('/') ? baseUrl + pin.url : pin.url;\n        analyticsRequests.push({\n          url: fullUrl,\n          pin_index: index,\n          pin_data: pin,\n          method: 'GET'\n        });\n      }\n    });\n  }\n\n  // Add discovered API endpoints\n  if (jsData.api_endpoints && jsData.api_endpoints.length > 0) {\n    jsData.api_endpoints.slice(0, 5).forEach((endpoint, index) => {\n      const fullUrl = endpoint.startsWith('/') ? baseUrl + endpoint : endpoint;\n      if (jsData.scan_guid) {\n        const urlWithParams = fullUrl.includes('?') \n          ? `${fullUrl}&scan_guid=${jsData.scan_guid}`\n          : `${fullUrl}?scan_guid=${jsData.scan_guid}`;\n        \n        analyticsRequests.push({\n          url: urlWithParams,\n          endpoint_index: index,\n          endpoint_type: 'discovered',\n          method: 'GET'\n        });\n      }\n    });\n  }\n\n  session.scraped_data.api_data.analytics_requests = analyticsRequests;\n  session.scraped_data.api_data.total_requests_planned = analyticsRequests.length;\n\n  session.steps.api_calls.status = 'completed';\n  session.steps.api_calls.details = {\n    competitors_api_success: !!competitorsData,\n    competitors_data_type: competitorsData ? typeof competitorsData : 'none',\n    analytics_requests_prepared: analyticsRequests.length,\n    execution_time_ms: Date.now() - stepStart\n  };\n\n  if (session.config.enable_detailed_logging) {\n    console.log('✅ API calls completed');\n    console.log(`📊 Competitors API: ${competitorsData ? 'Success' : 'Failed'}`);\n    console.log(`🔗 Analytics requests prepared: ${analyticsRequests.length}`);\n    console.log(`⏱️ Execution time: ${Date.now() - stepStart}ms`);\n  }\n\n  return [{ json: session }];\n\n} catch (error) {\n  session.steps.api_calls.status = 'failed';\n  session.steps.api_calls.details = {\n    error: error.message,\n    execution_time_ms: Date.now() - stepStart\n  };\n  session.errors.push({\n    step: 'api_calls',\n    error: error.message,\n    timestamp: new Date().toISOString()\n  });\n\n  console.error('❌ API calls failed:', error.message);\n  \n  // Continue with partial data\n  session.scraped_data.api_data = {\n    competitors: null,\n    analytics: [],\n    status: 'failed',\n    error: error.message\n  };\n\n  return [{ json: session }];\n}"
+      },
+      "id": "m3n4o5p6-q7r8-s9t0-u1v2-w3x4y5z6a7b8",
+      "name": "Process API Response",
+      "type": "n8n-nodes-base.function",
+      "typeVersion": 1,
+      "position": [2420, 200]
+    },
+    {
+      "parameters": {
+        "functionCode": "// Comprehensive data assembly and quality assessment\nconst session = $input.first().json;\n\nconst stepStart = Date.now();\nsession.steps.data_assembly = {\n  timestamp: new Date().toISOString(),\n  status: 'in_progress'\n};\n\ntry {\n  // Calculate comprehensive metrics\n  const metrics = {\n    total_execution_time_ms: Date.now() - new Date(session.started_at).getTime(),\n    total_elements_found: session.metrics.total_elements_found,\n    total_api_calls: session.metrics.total_api_calls || 0,\n    data_completeness: {\n      scan_information: Object.keys(session.scraped_data.scan_information).length,\n      rank_summary: Object.keys(session.scraped_data.rank_summary).length,\n      competitors: session.scraped_data.competitors.length,\n      sponsored_listings: session.scraped_data.sponsored_listings.length,\n      map_data: session.scraped_data.map_data ? session.scraped_data.map_data.length : 0,\n      javascript_data: !!session.scraped_data.javascript_data.scan_guid,\n      api_data: !!session.scraped_data.api_data\n    }\n  };\n\n  // Calculate data quality score (0-100)\n  let qualityScore = 0;\n  \n  // Scan information (25 points max)\n  qualityScore += Math.min(25, metrics.data_completeness.scan_information * 5);\n  \n  // Competitors data (25 points max)\n  qualityScore += Math.min(25, metrics.data_completeness.competitors * 2);\n  \n  // JavaScript data (20 points max)\n  qualityScore += metrics.data_completeness.javascript_data ? 20 : 0;\n  \n  // Rank summary (15 points max)\n  qualityScore += Math.min(15, metrics.data_completeness.rank_summary * 3);\n  \n  // Map data (10 points max)\n  qualityScore += Math.min(10, metrics.data_completeness.map_data * 0.5);\n  \n  // API data (5 points max)\n  qualityScore += metrics.data_completeness.api_data ? 5 : 0;\n\n  session.metrics.data_quality_score = Math.round(qualityScore);\n\n  // Create final data structure\n  const finalData = {\n    metadata: {\n      session_id: session.session_id,\n      scraped_at: new Date().toISOString(),\n      source_url: session.config.target_url,\n      scraper_version: '1.0.0-n8n-comprehensive',\n      method: 'n8n_comprehensive_workflow',\n      execution_time_ms: metrics.total_execution_time_ms,\n      data_quality_score: session.metrics.data_quality_score,\n      success: session.errors.length === 0,\n      warnings_count: session.warnings.length,\n      errors_count: session.errors.length\n    },\n    \n    // Main data sections (matching Python scraper output)\n    ozet_bilgiler: session.scraped_data.scan_information,\n    rank_summary: session.scraped_data.rank_summary,\n    rakipler: session.scraped_data.competitors,\n    sponsorlu_listeler: session.scraped_data.sponsored_listings,\n    detayli_sonuclar: session.scraped_data.detailed_results || [],\n    harita_verileri: session.scraped_data.map_data || [],\n    javascript_verileri: session.scraped_data.javascript_data,\n    api_verileri: session.scraped_data.api_data || {},\n    \n    // Quality and diagnostic information\n    quality_metrics: {\n      completeness_score: session.metrics.data_quality_score,\n      elements_found: metrics.data_completeness,\n      performance: {\n        total_time_ms: metrics.total_execution_time_ms,\n        steps_timing: {\n          http_request: session.steps.http_request.details?.execution_time_ms || 0,\n          html_parsing: session.steps.html_parsing.details?.execution_time_ms || 0,\n          js_extraction: session.steps.js_extraction.details?.execution_time_ms || 0,\n          api_calls: session.steps.api_calls.details?.execution_time_ms || 0\n        }\n      }\n    },\n    \n    // Diagnostic information\n    diagnostics: {\n      warnings: session.warnings,\n      errors: session.errors,\n      steps_status: {\n        http_request: session.steps.http_request.status,\n        html_parsing: session.steps.html_parsing.status,\n        js_extraction: session.steps.js_extraction.status,\n        api_calls: session.steps.api_calls.status\n      },\n      configuration: session.config\n    }\n  };\n\n  session.final_data = finalData;\n  session.steps.data_assembly.status = 'completed';\n  session.steps.data_assembly.details = {\n    final_quality_score: session.metrics.data_quality_score,\n    total_data_points: metrics.total_elements_found,\n    execution_time_ms: Date.now() - stepStart\n  };\n\n  if (session.config.enable_detailed_logging) {\n    console.log('✅ Data assembly completed');\n    console.log(`📊 Quality score: ${session.metrics.data_quality_score}/100`);\n    console.log(`🎯 Data points collected: ${metrics.total_elements_found}`);\n    console.log(`⏱️ Total execution time: ${metrics.total_execution_time_ms}ms`);\n    console.log('📋 Final data structure ready for export');\n  }\n\n  return [{ json: session }];\n\n} catch (error) {\n  session.steps.data_assembly.status = 'failed';\n  session.steps.data_assembly.details = {\n    error: error.message,\n    execution_time_ms: Date.now() - stepStart\n  };\n  session.errors.push({\n    step: 'data_assembly',\n    error: error.message,\n    timestamp: new Date().toISOString()\n  });\n\n  console.error('❌ Data assembly failed:', error.message);\n  throw error;\n}"
+      },
+      "id": "n4o5p6q7-r8s9-t0u1-v2w3-x4y5z6a7b8c9",
+      "name": "Assemble Final Data",
+      "type": "n8n-nodes-base.function",
+      "typeVersion": 1,
+      "position": [2220, 300]
+    },
+    {
+      "parameters": {
+        "operation": "write",
+        "fileName": "={{ $json.config.output_filename + '_' + $now.format('YYYY-MM-DD_HH-mm-ss') + '.json' }}",
+        "fileContent": "={{ JSON.stringify($json.final_data, null, 2) }}",
+        "options": {}
+      },
+      "id": "o5p6q7r8-s9t0-u1v2-w3x4-y5z6a7b8c9d0",
+      "name": "Export JSON",
+      "type": "n8n-nodes-base.readWriteFile",
+      "typeVersion": 1,
+      "position": [2420, 300]
+    },
+    {
+      "parameters": {
+        "functionCode": "// Create CSV export from scraped data\nconst session = $input.first().json;\nconst finalData = session.final_data;\n\ntry {\n  let csvContent = '';\n  \n  // Header\n  csvContent += 'Section,Key,Value,Additional_Info\\n';\n  \n  // Scan Information\n  Object.entries(finalData.ozet_bilgiler || {}).forEach(([key, value]) => {\n    csvContent += `\"Scan Information\",\"${key}\",\"${value}\",\"\"\\n`;\n  });\n  \n  // Rank Summary\n  Object.entries(finalData.rank_summary || {}).forEach(([key, value]) => {\n    csvContent += `\"Rank Summary\",\"${key}\",\"${value}\",\"\"\\n`;\n  });\n  \n  // Competitors\n  (finalData.rakipler || []).forEach((competitor, index) => {\n    csvContent += `\"Competitors\",\"Rank ${competitor.rank || index + 1}\",\"${competitor.business_name || 'N/A'}\",\"${competitor.address || 'N/A'}\"\\n`;\n  });\n  \n  // Map Data (first 20 entries)\n  (finalData.harita_verileri || []).slice(0, 20).forEach((location, index) => {\n    csvContent += `\"Map Data\",\"Location ${index + 1}\",\"${location.title || 'N/A'}\",\"${location.lat}, ${location.lng}\"\\n`;\n  });\n  \n  // Sponsored Listings\n  (finalData.sponsorlu_listeler || []).forEach((listing, index) => {\n    csvContent += `\"Sponsored Listings\",\"Listing ${index + 1}\",\"${listing.title || 'N/A'}\",\"${(listing.description || '').substring(0, 100)}\"\\n`;\n  });\n  \n  // Quality Metrics\n  csvContent += `\"Quality Metrics\",\"Data Quality Score\",\"${finalData.quality_metrics.completeness_score}/100\",\"\"\\n`;\n  csvContent += `\"Quality Metrics\",\"Total Execution Time\",\"${finalData.quality_metrics.performance.total_time_ms}ms\",\"\"\\n`;\n  csvContent += `\"Quality Metrics\",\"Elements Found\",\"${Object.values(finalData.quality_metrics.elements_found).reduce((a, b) => (typeof a === 'number' ? a : 0) + (typeof b === 'number' ? b : 0), 0)}\",\"\"\\n`;\n  \n  return [{ json: { csv_content: csvContent } }];\n  \n} catch (error) {\n  console.error('❌ CSV creation failed:', error.message);\n  return [{ json: { csv_content: 'Error,CSV Export Failed,' + error.message + ',\\n' } }];\n}"
+      },
+      "id": "p6q7r8s9-t0u1-v2w3-x4y5-z6a7b8c9d0e1",
+      "name": "Create CSV Export",
+      "type": "n8n-nodes-base.function",
+      "typeVersion": 1,
+      "position": [2620, 300]
+    },
+    {
+      "parameters": {
+        "operation": "write",
+        "fileName": "={{ $input.first().json.config.output_filename + '_' + $now.format('YYYY-MM-DD_HH-mm-ss') + '.csv' }}",
+        "fileContent": "={{ $json.csv_content }}",
+        "options": {}
+      },
+      "id": "q7r8s9t0-u1v2-w3x4-y5z6-a7b8c9d0e1f2",
+      "name": "Export CSV",
+      "type": "n8n-nodes-base.readWriteFile",
+      "typeVersion": 1,
+      "position": [2820, 300]
+    },
+    {
+      "parameters": {
+        "functionCode": "// Create comprehensive execution log\nconst session = $input.first().json;\nconst finalData = session.final_data;\n\nconst executionLog = {\n  session_info: {\n    session_id: session.session_id,\n    started_at: session.started_at,\n    completed_at: new Date().toISOString(),\n    total_duration_ms: Date.now() - new Date(session.started_at).getTime()\n  },\n  \n  configuration: session.config,\n  \n  execution_summary: {\n    overall_success: session.errors.length === 0,\n    data_quality_score: session.metrics.data_quality_score,\n    total_warnings: session.warnings.length,\n    total_errors: session.errors.length,\n    steps_completed: Object.values(session.steps).filter(step => step.status === 'completed').length,\n    steps_failed: Object.values(session.steps).filter(step => step.status === 'failed').length\n  },\n  \n  performance_metrics: {\n    total_execution_time_ms: Date.now() - new Date(session.started_at).getTime(),\n    step_timings: {\n      http_request: session.steps.http_request.details?.execution_time_ms || 0,\n      html_parsing: session.steps.html_parsing.details?.execution_time_ms || 0,\n      js_extraction: session.steps.js_extraction.details?.execution_time_ms || 0,\n      api_calls: session.steps.api_calls.details?.execution_time_ms || 0,\n      data_assembly: session.steps.data_assembly.details?.execution_time_ms || 0\n    },\n    data_volume: {\n      scan_info_fields: Object.keys(finalData.ozet_bilgiler || {}).length,\n      rank_summary_fields: Object.keys(finalData.rank_summary || {}).length,\n      competitors_count: (finalData.rakipler || []).length,\n      map_locations: (finalData.harita_verileri || []).length,\n      sponsored_listings: (finalData.sponsorlu_listeler || []).length\n    }\n  },\n  \n  step_details: session.steps,\n  \n  issues: {\n    warnings: session.warnings,\n    errors: session.errors\n  },\n  \n  files_created: [\n    session.config.output_filename + '_' + new Date().toISOString().split('T')[0] + '.json',\n    session.config.output_filename + '_' + new Date().toISOString().split('T')[0] + '.csv',\n    session.config.output_filename + '_execution_log_' + new Date().toISOString().split('T')[0] + '.json'\n  ],\n  \n  recommendations: generateRecommendations(session)\n};\n\nfunction generateRecommendations(session) {\n  const recommendations = [];\n  \n  if (session.metrics.data_quality_score < 70) {\n    recommendations.push('Data quality is below optimal - consider adjusting CSS selectors or checking site structure');\n  }\n  \n  if (session.warnings.length > 0) {\n    recommendations.push('Multiple warnings detected - review parsing strategies for better data extraction');\n  }\n  \n  if (session.steps.api_calls.status === 'failed' || session.steps.api_calls.status === 'skipped') {\n    recommendations.push('API calls were not successful - verify scan_guid extraction and API endpoints');\n  }\n  \n  if ((session.scraped_data.competitors || []).length === 0) {\n    recommendations.push('No competitors found - check competitors table CSS selectors');\n  }\n  \n  if (!session.scraped_data.javascript_data.scan_guid) {\n    recommendations.push('Scan GUID not found - update JavaScript extraction patterns');\n  }\n  \n  const totalTime = Date.now() - new Date(session.started_at).getTime();\n  if (totalTime > 60000) {\n    recommendations.push('Execution time is high - consider optimizing timeout settings and rate limiting');\n  }\n  \n  if (recommendations.length === 0) {\n    recommendations.push('Scraping completed successfully with optimal performance');\n  }\n  \n  return recommendations;\n}\n\nif (session.config.enable_detailed_logging) {\n  console.log('\\n🏁 SCRAPING SESSION COMPLETED');\n  console.log('================================');\n  console.log(`Session ID: ${executionLog.session_info.session_id}`);\n  console.log(`Duration: ${executionLog.execution_summary.total_execution_time_ms}ms`);\n  console.log(`Quality Score: ${executionLog.execution_summary.data_quality_score}/100`);\n  console.log(`Success: ${executionLog.execution_summary.overall_success ? 'YES' : 'NO'}`);\n  console.log(`Warnings: ${executionLog.execution_summary.total_warnings}`);\n  console.log(`Errors: ${executionLog.execution_summary.total_errors}`);\n  console.log('\\nRecommendations:');\n  executionLog.recommendations.forEach((rec, i) => {\n    console.log(`${i + 1}. ${rec}`);\n  });\n}\n\nreturn [{ json: executionLog }];"
+      },
+      "id": "r8s9t0u1-v2w3-x4y5-z6a7-b8c9d0e1f2g3",
+      "name": "Create Execution Log",
+      "type": "n8n-nodes-base.function",
+      "typeVersion": 1,
+      "position": [2620, 400]
+    },
+    {
+      "parameters": {
+        "operation": "write",
+        "fileName": "={{ $input.first().json.session_info.session_id + '_execution_log_' + $now.format('YYYY-MM-DD_HH-mm-ss') + '.json' }}",
+        "fileContent": "={{ JSON.stringify($json, null, 2) }}",
+        "options": {}
+      },
+      "id": "s9t0u1v2-w3x4-y5z6-a7b8-c9d0e1f2g3h4",
+      "name": "Export Execution Log",
+      "type": "n8n-nodes-base.readWriteFile",
+      "typeVersion": 1,
+      "position": [2820, 400]
+    }
+  ],
+  "connections": {
+    "Configuration": {
+      "main": [
+        [
+          {
+            "node": "Initialize Session",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Initialize Session": {
+      "main": [
+        [
+          {
+            "node": "Rate Limit",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Rate Limit": {
+      "main": [
+        [
+          {
+            "node": "HTTP Request - Main Page",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "HTTP Request - Main Page": {
+      "main": [
+        [
+          {
+            "node": "Validate HTTP Response",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Validate HTTP Response": {
+      "main": [
+        [
+          {
+            "node": "HTML Extract",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "HTML Extract": {
+      "main": [
+        [
+          {
+            "node": "Parse HTML Data",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Parse HTML Data": {
+      "main": [
+        [
+          {
+            "node": "Extract JavaScript Data",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Extract JavaScript Data": {
+      "main": [
+        [
+          {
+            "node": "Check API Availability",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Check API Availability": {
+      "main": [
+        [
+          {
+            "node": "API Rate Limit",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Skip API Calls",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "API Rate Limit": {
+      "main": [
+        [
+          {
+            "node": "API Call - Competitors",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "API Call - Competitors": {
+      "main": [
+        [
+          {
+            "node": "Process API Response",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Skip API Calls": {
+      "main": [
+        [
+          {
+            "node": "Assemble Final Data",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Process API Response": {
+      "main": [
+        [
+          {
+            "node": "Assemble Final Data",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Assemble Final Data": {
+      "main": [
+        [
+          {
+            "node": "Export JSON",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Create CSV Export",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Create Execution Log",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Create CSV Export": {
+      "main": [
+        [
+          {
+            "node": "Export CSV",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Create Execution Log": {
+      "main": [
+        [
+          {
+            "node": "Export Execution Log",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "pinData": {},
+  "settings": {
+    "executionOrder": "v1",
+    "errorWorkflow": {
+      "callerPolicy": "workflowDefault"
+    }
+  },
+  "staticData": null,
+  "tags": ["scraping", "local-rank", "comprehensive", "production"],
+  "triggerCount": 0,
+  "updatedAt": "2024-01-20T14:00:00.000Z",
+  "versionId": "1"
+}
