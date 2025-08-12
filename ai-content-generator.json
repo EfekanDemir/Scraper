@@ -1,0 +1,389 @@
+{
+  "name": "AI İçerik Üretici - Blog, Sosyal Medya ve Pazarlama",
+  "nodes": [
+    {
+      "id": "manual-trigger-001",
+      "name": "Manuel Tetikleme",
+      "type": "n8n-nodes-base.manualTrigger",
+      "position": [100, 300],
+      "parameters": {},
+      "typeVersion": 1
+    },
+    {
+      "id": "webhook-trigger-001",
+      "name": "Webhook Tetikleme",
+      "type": "n8n-nodes-base.webhook",
+      "position": [100, 200],
+      "webhookId": "content-generator-webhook",
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "content-generator",
+        "options": {}
+      },
+      "typeVersion": 2
+    },
+    {
+      "id": "content-type-switch-001",
+      "name": "İçerik Türü Seçici",
+      "type": "n8n-nodes-base.switch",
+      "position": [300, 250],
+      "parameters": {
+        "options": {},
+        "conditions": {
+          "options": {
+            "caseSensitive": false,
+            "leftValue": "",
+            "typeValidation": "strict"
+          },
+          "conditions": [
+            {
+              "id": "is-blog",
+              "leftValue": "={{ $json.content_type || $json.body.content_type }}",
+              "rightValue": "blog",
+              "operator": {
+                "type": "string",
+                "operation": "equals"
+              }
+            },
+            {
+              "id": "is-social",
+              "leftValue": "={{ $json.content_type || $json.body.content_type }}",
+              "rightValue": "social",
+              "operator": {
+                "type": "string",
+                "operation": "equals"
+              }
+            },
+            {
+              "id": "is-marketing",
+              "leftValue": "={{ $json.content_type || $json.body.content_type }}",
+              "rightValue": "marketing",
+              "operator": {
+                "type": "string",
+                "operation": "equals"
+              }
+            }
+          ]
+        },
+        "fallbackOutput": "extra"
+      },
+      "typeVersion": 3
+    },
+    {
+      "id": "blog-content-generator-001",
+      "name": "Blog İçeriği Oluştur",
+      "type": "@n8n/n8n-nodes-langchain.chainLlm",
+      "position": [500, 100],
+      "parameters": {
+        "prompt": "Konu: {{ $json.topic || $json.body.topic }}\nHedef Kitle: {{ $json.audience || $json.body.audience || 'Genel' }}\nTon: {{ $json.tone || $json.body.tone || 'Dostça ve bilgilendirici' }}",
+        "messages": {
+          "messageValues": [
+            {
+              "message": "Sen profesyonel bir içerik yazarısın. Verilen konuya göre kapsamlı bir blog yazısı yaz. Blog yazısın şu yapıda olmalı:\n\n1. Çekici başlık\n2. Giriş paragrafı (problemi tanımla)\n3. Ana bölümler (3-5 bölüm)\n4. Sonuç ve öneriler\n5. Çağrı cümlesi (call to action)\n\nYazı en az 800 kelime olmalı, SEO dostu olmalı ve Türkçe yazılmalı. Başlıkları H1, H2, H3 etiketleriyle işaretle."
+            }
+          ]
+        }
+      },
+      "typeVersion": 1.3
+    },
+    {
+      "id": "social-media-generator-001",
+      "name": "Sosyal Medya İçeriği Oluştur",
+      "type": "@n8n/n8n-nodes-langchain.chainLlm",
+      "position": [500, 250],
+      "parameters": {
+        "prompt": "Konu: {{ $json.topic || $json.body.topic }}\nPlatform: {{ $json.platform || $json.body.platform || 'Instagram' }}\nTon: {{ $json.tone || $json.body.tone || 'Enerjik ve eğlenceli' }}",
+        "messages": {
+          "messageValues": [
+            {
+              "message": "Sen sosyal medya uzmanısın. Verilen konuya göre sosyal medya içeriği oluştur. İçerik şunları içermeli:\n\n1. Platform türüne uygun metin (Instagram için emoji, hashtag kullan)\n2. Dikkat çekici başlangıç\n3. Değer katan bilgi\n4. Etkileşim arttıracak soru\n5. Relevant hashtagler (#)\n\nMetin akıcı, Türkçe ve hedef kitlesine uygun olmalı. Platform özelliklerine dikkat et:\n- Instagram: Görsel odaklı, emoji kullan, max 2200 karakter\n- Twitter: Kısa ve etkili, max 280 karakter\n- LinkedIn: Profesyonel ton, iş odaklı\n- TikTok: Genç kitlelere uygun, trend kelimeler"
+            }
+          ]
+        }
+      },
+      "typeVersion": 1.3
+    },
+    {
+      "id": "marketing-content-generator-001",
+      "name": "Pazarlama İçeriği Oluştur",
+      "type": "@n8n/n8n-nodes-langchain.chainLlm",
+      "position": [500, 400],
+      "parameters": {
+        "prompt": "Ürün/Hizmet: {{ $json.product || $json.body.product }}\nHedef Kitle: {{ $json.audience || $json.body.audience }}\nHedef: {{ $json.goal || $json.body.goal || 'Satış artırma' }}\nTon: {{ $json.tone || $json.body.tone || 'İkna edici ve güvenilir' }}",
+        "messages": {
+          "messageValues": [
+            {
+              "message": "Sen deneyimli bir pazarlama uzmanısın. Verilen ürün/hizmet için etkili pazarlama içeriği oluştur. İçerik şunları içermeli:\n\n1. Dikkat çekici başlık\n2. Problemin tanımlanması\n3. Çözüm sunumu (ürün/hizmet)\n4. Faydalar ve özellikler\n5. Sosyal kanıt (testimonial tarzında)\n6. Güçlü çağrı cümlesi (CTA)\n7. Aciliyet yaratma\n\nİçerik ikna edici, duygusal bağ kuran ve satış odaklı olmalı. AIDA (Attention, Interest, Desire, Action) modelini kullan. Türkçe yaz."
+            }
+          ]
+        }
+      },
+      "typeVersion": 1.3
+    },
+    {
+      "id": "openai-chat-model-003",
+      "name": "OpenAI Ana Model",
+      "type": "@n8n/n8n-nodes-langchain.lmChatOpenAi",
+      "position": [400, 600],
+      "parameters": {
+        "model": "gpt-4o",
+        "options": {
+          "temperature": 0.7,
+          "maxTokens": 2000
+        }
+      },
+      "credentials": {
+        "openAiApi": {
+          "id": "openai-credentials",
+          "name": "OpenAI API"
+        }
+      },
+      "typeVersion": 1
+    },
+    {
+      "id": "image-generator-001",
+      "name": "Görsel Oluştur",
+      "type": "n8n-nodes-base.openAi",
+      "position": [700, 300],
+      "parameters": {
+        "resource": "image",
+        "prompt": "={{ $json.output }}\n\nBu metin için uygun bir görsel oluştur. Türk kültürüne uygun, modern ve profesyonel görünümlü olsun.",
+        "options": {
+          "size": "1024x1024",
+          "quality": "standard",
+          "style": "vivid"
+        }
+      },
+      "credentials": {
+        "openAiApi": {
+          "id": "openai-credentials",
+          "name": "OpenAI API"
+        }
+      },
+      "typeVersion": 1.1
+    },
+    {
+      "id": "content-formatter-001",
+      "name": "İçerik Formatla",
+      "type": "n8n-nodes-base.set",
+      "position": [900, 300],
+      "parameters": {
+        "fields": {
+          "values": [
+            {
+              "name": "final_content",
+              "type": "string",
+              "stringValue": "={{ $('Blog İçeriği Oluştur').item.json.output || $('Sosyal Medya İçeriği Oluştur').item.json.output || $('Pazarlama İçeriği Oluştur').item.json.output }}"
+            },
+            {
+              "name": "content_type",
+              "type": "string",
+              "stringValue": "={{ $('Manuel Tetikleme').item.json.content_type || $('Webhook Tetikleme').item.json.body.content_type }}"
+            },
+            {
+              "name": "created_at",
+              "type": "string",
+              "stringValue": "={{ new Date().toISOString() }}"
+            },
+            {
+              "name": "image_url",
+              "type": "string",
+              "stringValue": "={{ $json.url || '' }}"
+            },
+            {
+              "name": "word_count",
+              "type": "number",
+              "numberValue": "={{ ($('Blog İçeriği Oluştur').item.json.output || $('Sosyal Medya İçeriği Oluştur').item.json.output || $('Pazarlama İçeriği Oluştur').item.json.output).split(' ').length }}"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "typeVersion": 3.2
+    },
+    {
+      "id": "save-to-google-sheets-001",
+      "name": "Google Sheets'e Kaydet",
+      "type": "n8n-nodes-base.googleSheets",
+      "position": [1100, 200],
+      "parameters": {
+        "operation": "appendOrUpdate",
+        "documentId": {
+          "__rl": true,
+          "value": "YOUR_GOOGLE_SHEET_ID",
+          "mode": "url"
+        },
+        "sheetName": "Generated_Content",
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "content_type": "={{ $json.content_type }}",
+            "content": "={{ $json.final_content }}",
+            "created_at": "={{ $json.created_at }}",
+            "word_count": "={{ $json.word_count }}",
+            "image_url": "={{ $json.image_url }}"
+          }
+        },
+        "options": {}
+      },
+      "credentials": {
+        "googleSheetsOAuth2Api": {
+          "id": "google-sheets-credentials",
+          "name": "Google Sheets OAuth2"
+        }
+      },
+      "typeVersion": 4.4
+    },
+    {
+      "id": "send-notification-001",
+      "name": "Bildirim Gönder",
+      "type": "n8n-nodes-base.telegram",
+      "position": [1100, 400],
+      "parameters": {
+        "operation": "sendMessage",
+        "text": "🎉 Yeni içerik oluşturuldu!\n\n📝 Tür: {{ $json.content_type }}\n📊 Kelime sayısı: {{ $json.word_count }}\n⏰ Oluşturulma zamanı: {{ $json.created_at }}\n\n{{ $json.final_content.substring(0, 200) }}...",
+        "chatId": "YOUR_TELEGRAM_CHAT_ID",
+        "additionalFields": {
+          "parse_mode": "Markdown"
+        }
+      },
+      "credentials": {
+        "telegramApi": {
+          "id": "telegram-credentials",
+          "name": "Telegram Bot API"
+        }
+      },
+      "typeVersion": 1.1
+    }
+  ],
+  "connections": {
+    "Manuel Tetikleme": {
+      "main": [
+        [
+          {
+            "node": "İçerik Türü Seçici",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Webhook Tetikleme": {
+      "main": [
+        [
+          {
+            "node": "İçerik Türü Seçici",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "İçerik Türü Seçici": {
+      "main": [
+        [
+          {
+            "node": "Blog İçeriği Oluştur",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Sosyal Medya İçeriği Oluştur",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Pazarlama İçeriği Oluştur",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Blog İçeriği Oluştur": {
+      "main": [
+        [
+          {
+            "node": "Görsel Oluştur",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Sosyal Medya İçeriği Oluştur": {
+      "main": [
+        [
+          {
+            "node": "Görsel Oluştur",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Pazarlama İçeriği Oluştur": {
+      "main": [
+        [
+          {
+            "node": "Görsel Oluştur",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Görsel Oluştur": {
+      "main": [
+        [
+          {
+            "node": "İçerik Formatla",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "İçerik Formatla": {
+      "main": [
+        [
+          {
+            "node": "Google Sheets'e Kaydet",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Bildirim Gönder",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "OpenAI Ana Model": {
+      "ai_languageModel": [
+        [
+          {
+            "node": "Blog İçeriği Oluştur",
+            "type": "ai_languageModel",
+            "index": 0
+          },
+          {
+            "node": "Sosyal Medya İçeriği Oluştur",
+            "type": "ai_languageModel",
+            "index": 0
+          },
+          {
+            "node": "Pazarlama İçeriği Oluştur",
+            "type": "ai_languageModel",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  }
+}
