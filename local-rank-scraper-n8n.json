@@ -325,14 +325,13 @@
     {
       "id": "api-requests-parallel-001",
       "name": "8. Paralel API İstekleri",
-      "type": "n8n-nodes-base.splitInBatches",
+      "type": "n8n-nodes-base.splitOut",
       "position": [1300, 350],
       "parameters": {
-        "options": {
-          "batchSize": 3
-        }
+        "fieldName": "api_endpoints_to_try",
+        "options": {}
       },
-      "typeVersion": 3
+      "typeVersion": 1
     },
     {
       "id": "api-request-executor-001",
@@ -340,7 +339,7 @@
       "type": "n8n-nodes-base.httpRequest",
       "position": [1500, 350],
       "parameters": {
-        "url": "={{ $json.api_endpoints_to_try[0] }}",
+        "url": "={{ $json }}",
         "method": "GET",
         "options": {
           "timeout": 10000,
@@ -371,13 +370,13 @@
     {
       "id": "data-aggregator-001",
       "name": "9. Veri Birleştirici",
-      "type": "n8n-nodes-base.aggregate",
+      "type": "n8n-nodes-base.merge",
       "position": [1700, 300],
       "parameters": {
-        "aggregate": "aggregateAllItemData",
+        "mode": "multiplex",
         "options": {}
       },
-      "typeVersion": 1
+      "typeVersion": 2.1
     },
     {
       "id": "final-data-formatter-001",
@@ -641,6 +640,50 @@
         ]
       ]
     },
+    "2. HTML Parser - Özet Bilgiler": {
+      "main": [
+        [
+          {
+            "node": "9. Veri Birleştirici",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "3. HTML Parser - Rakipler": {
+      "main": [
+        [
+          {
+            "node": "9. Veri Birleştirici",
+            "type": "main",
+            "index": 1
+          }
+        ]
+      ]
+    },
+    "4. HTML Parser - Sponsorlu Listeler": {
+      "main": [
+        [
+          {
+            "node": "9. Veri Birleştirici",
+            "type": "main",
+            "index": 2
+          }
+        ]
+      ]
+    },
+    "5. HTML Parser - Detaylı Sonuçlar": {
+      "main": [
+        [
+          {
+            "node": "9. Veri Birleştirici",
+            "type": "main",
+            "index": 3
+          }
+        ]
+      ]
+    },
     "6. JavaScript Veri Çıkarıcı": {
       "main": [
         [
@@ -648,6 +691,11 @@
             "node": "7. API Veri Çekici",
             "type": "main",
             "index": 0
+          },
+          {
+            "node": "9. Veri Birleştirici",
+            "type": "main",
+            "index": 4
           }
         ]
       ]
@@ -680,7 +728,7 @@
           {
             "node": "9. Veri Birleştirici",
             "type": "main",
-            "index": 0
+            "index": 5
           }
         ]
       ]
