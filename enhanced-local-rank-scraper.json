@@ -1,0 +1,216 @@
+{
+  "id": "EnhancedLocalRankScraper",
+  "meta": {
+    "instanceId": "enhanced-local-rank-scraper-001",
+    "templateCredsSetupCompleted": false
+  },
+  "name": "Enhanced Local Rank Report Scraper",
+  "description": "Geliştirilmiş Python main_scraper.py klonu - Playwright/Browser desteği ile dinamik içerik scraping",
+  "tags": ["scraping", "local-rank", "enhanced", "playwright", "dynamic"],
+  "nodes": [
+    {
+      "id": "manual-trigger-001",
+      "name": "Manuel Tetikleme",
+      "type": "n8n-nodes-base.manualTrigger",
+      "position": [100, 300],
+      "parameters": {},
+      "typeVersion": 1
+    },
+    {
+      "id": "url-setup-001",
+      "name": "URL ve Ayar Hazırlama",
+      "type": "n8n-nodes-base.set",
+      "position": [300, 300],
+      "parameters": {
+        "fields": {
+          "values": [
+            {
+              "name": "target_url",
+              "type": "string",
+              "stringValue": "={{ $json.url || 'https://localrank.report/report/meisterwerk-folienservice-auto-folierung-berlin/autofolierung' }}"
+            },
+            {
+              "name": "use_browser",
+              "type": "boolean",
+              "booleanValue": true
+            },
+            {
+              "name": "timeout",
+              "type": "number", 
+              "numberValue": 30
+            },
+            {
+              "name": "base_filename",
+              "type": "string",
+              "stringValue": "enhanced_scraped_data"
+            }
+          ]
+        }
+      },
+      "typeVersion": 3.2
+    },
+    {
+      "id": "browser-scraper-001",
+      "name": "1. Browser İle Scraping",
+      "type": "n8n-nodes-base.executeCommand",
+      "position": [500, 300],
+      "parameters": {
+        "command": "node",
+        "arguments": "-e",
+        "workingDirectory": "/tmp",
+        "additionalArguments": {
+          "argumentsUi": {
+            "values": [
+              {
+                "argument": "const puppeteer = require('puppeteer');\nconst fs = require('fs');\n\n(async () => {\n  const targetUrl = '{{ $json.target_url }}';\n  let browser;\n  \n  try {\n    browser = await puppeteer.launch({\n      headless: true,\n      args: [\n        '--no-sandbox',\n        '--disable-dev-shm-usage',\n        '--disable-blink-features=AutomationControlled',\n        '--user-agent=Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36'\n      ]\n    });\n    \n    const page = await browser.newPage();\n    \n    // Set realistic viewport and user agent\n    await page.setViewport({ width: 1366, height: 768 });\n    await page.setUserAgent('Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36');\n    \n    // Set additional headers\n    await page.setExtraHTTPHeaders({\n      'Accept-Language': 'en-US,en;q=0.9,tr;q=0.8',\n      'Accept-Encoding': 'gzip, deflate, br',\n      'Cache-Control': 'no-cache'\n    });\n    \n    // Navigate and wait for content\n    await page.goto(targetUrl, { \n      waitUntil: 'networkidle2',\n      timeout: 30000 \n    });\n    \n    // Wait for key elements to load\n    try {\n      await page.waitForSelector('h4', { timeout: 10000 });\n      await page.waitForSelector('table', { timeout: 5000 });\n    } catch (e) {\n      console.log('Some elements may not have loaded, continuing...');\n    }\n    \n    // Get full HTML content\n    const html = await page.content();\n    \n    // Get specific data using page.evaluate\n    const scrapedData = await page.evaluate(() => {\n      const data = {\n        scan_information: {},\n        competitors: [],\n        sponsored_listings: [],\n        detailed_results: []\n      };\n      \n      // Parse Scan Information\n      const scanHeader = Array.from(document.querySelectorAll('h4')).find(h => \n        /^\\s*Scan Information\\s*$/i.test(h.textContent)\n      );\n      \n      if (scanHeader) {\n        let scanTable = scanHeader.nextElementSibling;\n        while (scanTable && scanTable.tagName !== 'TABLE') {\n          scanTable = scanTable.nextElementSibling;\n        }\n        \n        if (scanTable) {\n          // Business Name\n          const bizName = scanTable.querySelector('span.bizname');\n          data.scan_information['İşletme Adı'] = bizName?.textContent?.trim() || 'N/A';\n          \n          // Address  \n          const address = scanTable.querySelector('span.center-block');\n          data.scan_information['Adres'] = address?.textContent?.trim() || 'N/A';\n          \n          // Rating\n          const ratingStars = scanTable.querySelector('div.rating-stars');\n          if (ratingStars) {\n            const title = ratingStars.getAttribute('title') || '';\n            const match = title.match(/([0-9]+(?:[\\.,][0-9]+)?)\\s*out\\s*of\\s*5/i);\n            data.scan_information['Puan'] = match ? match[1].replace(',', '.') : 'N/A';\n          }\n          \n          // Keyword\n          const keywordTd = Array.from(scanTable.querySelectorAll('td')).find(td => \n            /Keyword/i.test(td.textContent)\n          );\n          if (keywordTd && keywordTd.nextElementSibling) {\n            data.scan_information['Anahtar Kelime'] = keywordTd.nextElementSibling.textContent?.trim() || 'N/A';\n          }\n        }\n      }\n      \n      // Parse Competitors\n      const compTable = document.querySelector('table#tbl_comp_rank');\n      if (compTable) {\n        const rows = compTable.querySelectorAll('tbody tr');\n        rows.forEach(row => {\n          const competitor = {};\n          \n          const nameLink = row.querySelector('a.ext');\n          competitor['İsim'] = nameLink?.textContent?.trim() || 'N/A';\n          \n          const ratingStars = row.querySelector('div.rating-stars');\n          if (ratingStars) {\n            const title = ratingStars.getAttribute('title') || '';\n            const match = title.match(/([0-9]+(?:[\\.,][0-9]+)?)\\s*out\\s*of\\s*5/i);\n            competitor['Puan'] = match ? match[1].replace(',', '.') : 'N/A';\n          }\n          \n          const mapIcon = row.querySelector('i.fa-map-marker');\n          if (mapIcon) {\n            const addressSpan = mapIcon.closest('span');\n            competitor['Adres'] = addressSpan?.textContent?.trim() || 'N/A';\n          }\n          \n          data.competitors.push(competitor);\n        });\n      }\n      \n      return data;\n    });\n    \n    console.log(JSON.stringify({\n      html: html,\n      scraped_data: scrapedData,\n      html_length: html.length,\n      method: 'puppeteer_enhanced',\n      timestamp: new Date().toISOString(),\n      url: targetUrl\n    }));\n    \n  } catch (error) {\n    console.log(JSON.stringify({\n      html: '',\n      scraped_data: {},\n      error: error.message,\n      method: 'puppeteer_failed',\n      timestamp: new Date().toISOString(),\n      url: targetUrl\n    }));\n  } finally {\n    if (browser) {\n      await browser.close();\n    }\n  }\n})();"
+              }
+            ]
+          }
+        }
+      },
+      "typeVersion": 1
+    },
+    {
+      "id": "data-parser-001",
+      "name": "2. Veri Parse ve Düzenleme",
+      "type": "n8n-nodes-base.code",
+      "position": [700, 300],
+      "parameters": {
+        "mode": "runOnceForEachItem",
+        "jsCode": "// Parse the browser output and structure the data\nconst output = $input.item.json.stdout || '';\n\ntry {\n  const parsedOutput = JSON.parse(output);\n  \n  const result = {\n    // Özet bilgiler\n    scan_information: parsedOutput.scraped_data?.scan_information || {},\n    \n    // Rakip bilgileri\n    competitors: parsedOutput.scraped_data?.competitors || [],\n    \n    // HTML content (eğer ihtiyaç duyulursa)\n    html_content: parsedOutput.html || '',\n    html_length: parsedOutput.html_length || 0,\n    \n    // Metadata\n    scraping_metadata: {\n      method: parsedOutput.method || 'unknown',\n      timestamp: parsedOutput.timestamp,\n      url: parsedOutput.url,\n      total_competitors: (parsedOutput.scraped_data?.competitors || []).length,\n      success: !parsedOutput.error\n    }\n  };\n  \n  if (parsedOutput.error) {\n    result.error = parsedOutput.error;\n  }\n  \n  return result;\n  \n} catch (parseError) {\n  return {\n    scan_information: {},\n    competitors: [],\n    html_content: '',\n    scraping_metadata: {\n      method: 'parsing_failed',\n      timestamp: new Date().toISOString(),\n      error: parseError.message,\n      raw_output: output\n    }\n  };\n}"
+      },
+      "typeVersion": 2
+    },
+    {
+      "id": "json-exporter-001",
+      "name": "3A. JSON Export",
+      "type": "n8n-nodes-base.writeBinaryFile",
+      "position": [900, 200],
+      "parameters": {
+        "fileName": "={{ $json.base_filename }}_{{ new Date().toISOString().split('T')[0] }}.json",
+        "data": "={{ JSON.stringify($json, null, 2) }}"
+      },
+      "typeVersion": 1
+    },
+    {
+      "id": "csv-exporter-001",
+      "name": "3B. CSV Export - Özet",
+      "type": "n8n-nodes-base.spreadsheetFile",
+      "position": [900, 300],
+      "parameters": {
+        "operation": "write",
+        "fileFormat": "csv",
+        "fileName": "={{ $json.base_filename }}_ozet_{{ new Date().toISOString().split('T')[0] }}.csv",
+        "data": "={{ [$json.scan_information] }}",
+        "options": {
+          "includeHeaders": true
+        }
+      },
+      "typeVersion": 1
+    },
+    {
+      "id": "csv-exporter-002", 
+      "name": "3C. CSV Export - Rakipler",
+      "type": "n8n-nodes-base.spreadsheetFile",
+      "position": [900, 400],
+      "parameters": {
+        "operation": "write",
+        "fileFormat": "csv", 
+        "fileName": "={{ $json.base_filename }}_rakipler_{{ new Date().toISOString().split('T')[0] }}.csv",
+        "data": "={{ $json.competitors }}",
+        "options": {
+          "includeHeaders": true
+        }
+      },
+      "typeVersion": 1
+    },
+    {
+      "id": "summary-generator-001",
+      "name": "4. Özet Rapor",
+      "type": "n8n-nodes-base.set",
+      "position": [1100, 300],
+      "parameters": {
+        "fields": {
+          "values": [
+            {
+              "name": "summary_report",
+              "type": "string",
+              "stringValue": "=📊 **Local Rank Scraping Raporu**\\n\\n🏢 **İşletme:** {{ $json.scan_information['İşletme Adı'] || 'N/A' }}\\n📍 **Adres:** {{ $json.scan_information['Adres'] || 'N/A' }}\\n⭐ **Puan:** {{ $json.scan_information['Puan'] || 'N/A' }}\\n🔍 **Anahtar Kelime:** {{ $json.scan_information['Anahtar Kelime'] || 'N/A' }}\\n\\n👥 **Rakip Sayısı:** {{ $json.competitors.length || 0 }}\\n📄 **HTML Uzunluğu:** {{ $json.html_length || 0 }} karakter\\n⚡ **Scraping Yöntemi:** {{ $json.scraping_metadata.method }}\\n⏰ **Tarih:** {{ $json.scraping_metadata.timestamp }}\\n\\n✅ **Durum:** {{ $json.scraping_metadata.success ? 'Başarılı' : 'Hatalı' }}"
+            }
+          ]
+        }
+      },
+      "typeVersion": 3.2
+    }
+  ],
+  "connections": {
+    "Manuel Tetikleme": {
+      "main": [
+        [
+          {
+            "node": "URL ve Ayar Hazırlama",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "URL ve Ayar Hazırlama": {
+      "main": [
+        [
+          {
+            "node": "1. Browser İle Scraping",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "1. Browser İle Scraping": {
+      "main": [
+        [
+          {
+            "node": "2. Veri Parse ve Düzenleme",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "2. Veri Parse ve Düzenleme": {
+      "main": [
+        [
+          {
+            "node": "3A. JSON Export",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "3B. CSV Export - Özet",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "3C. CSV Export - Rakipler", 
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "4. Özet Rapor",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "pinData": {},
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "staticData": null,
+  "tags": [],
+  "triggerCount": 0,
+  "updatedAt": "2024-01-15T12:00:00.000Z",
+  "versionId": "enhanced-v1.0"
+}

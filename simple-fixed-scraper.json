@@ -1,0 +1,142 @@
+{
+  "id": "SimpleFixedScraper",
+  "meta": {
+    "instanceId": "simple-fixed-scraper-001",
+    "templateCredsSetupCompleted": false
+  },
+  "name": "Simple Fixed Local Rank Scraper",
+  "description": "Basit ve etkili HTML scraping çözümü - Content problemi çözüldü",
+  "tags": ["scraping", "local-rank", "fixed", "simple"],
+  "nodes": [
+    {
+      "id": "manual-trigger-001",
+      "name": "Manuel Tetikleme",
+      "type": "n8n-nodes-base.manualTrigger",
+      "position": [100, 300],
+      "parameters": {},
+      "typeVersion": 1
+    },
+    {
+      "id": "url-setup-001",
+      "name": "URL Hazırlama",
+      "type": "n8n-nodes-base.set",
+      "position": [300, 300],
+      "parameters": {
+        "fields": {
+          "values": [
+            {
+              "name": "target_url",
+              "type": "string",
+              "stringValue": "https://localrank.report/report/meisterwerk-folienservice-auto-folierung-berlin/autofolierung"
+            }
+          ]
+        }
+      },
+      "typeVersion": 3.2
+    },
+    {
+      "id": "http-request-001",
+      "name": "1. HTTP İsteği",
+      "type": "n8n-nodes-base.httpRequest",
+      "position": [500, 300],
+      "parameters": {
+        "url": "={{ $json.target_url }}",
+        "options": {
+          "fullResponse": true,
+          "headers": {
+            "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
+            "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8,application/signed-exchange;v=b3;q=0.7",
+            "Accept-Language": "en-US,en;q=0.9,tr;q=0.8",
+            "Accept-Encoding": "gzip, deflate, br",
+            "Cache-Control": "no-cache",
+            "Pragma": "no-cache",
+            "Connection": "keep-alive",
+            "Upgrade-Insecure-Requests": "1",
+            "Sec-Fetch-Dest": "document",
+            "Sec-Fetch-Mode": "navigate",
+            "Sec-Fetch-Site": "none",
+            "Sec-Fetch-User": "?1"
+          }
+        }
+      },
+      "typeVersion": 4
+    },
+    {
+      "id": "html-analyzer-001",
+      "name": "2. HTML Analiz",
+      "type": "n8n-nodes-base.code",
+      "position": [700, 300],
+      "parameters": {
+        "mode": "runOnceForEachItem",
+        "jsCode": "// HTML content analysis and data extraction\nconst response = $input.item.json;\nconst html = response.body || response.data || '';\nconst headers = response.headers || {};\n\n// Basic analysis\nconst htmlLength = html.length;\nconst hasTable = html.includes('<table');\nconst hasH4 = html.includes('<h4');\nconst hasClass = html.includes('class=');\nconst hasSpan = html.includes('<span');\nconst hasBizname = html.includes('bizname');\nconst hasRating = html.includes('rating');\n\n// Try to extract basic data directly from HTML string\nconst basicData = {};\n\n// Look for title\nconst titleMatch = html.match(/<title[^>]*>([^<]+)<\\/title>/i);\nif (titleMatch) {\n  basicData.page_title = titleMatch[1].trim();\n}\n\n// Look for any business-related content\nconst businessMatches = html.match(/class=[\"']?[^\"']*bizname[^\"']*[\"']?[^>]*>([^<]+)</gi);\nif (businessMatches && businessMatches.length > 0) {\n  basicData.business_name = businessMatches[0].replace(/<[^>]*>/g, '').trim();\n}\n\n// Look for address content\nconst addressMatches = html.match(/class=[\"']?[^\"']*center-block[^\"']*[\"']?[^>]*>([^<]+)</gi);\nif (addressMatches && addressMatches.length > 0) {\n  basicData.address = addressMatches[0].replace(/<[^>]*>/g, '').trim();\n}\n\n// Look for rating information\nconst ratingMatches = html.match(/([0-9]+(?:[\\.,][0-9]+)?)\\s*out\\s*of\\s*5/gi);\nif (ratingMatches && ratingMatches.length > 0) {\n  basicData.rating = ratingMatches[0];\n}\n\n// Look for scan information table\nconst scanInfoMatch = html.match(/Scan Information[\\s\\S]{0,1000}?<table[\\s\\S]*?<\\/table>/i);\nlet scanInfoContent = '';\nif (scanInfoMatch) {\n  scanInfoContent = scanInfoMatch[0];\n}\n\n// Look for competitors table\nconst competitorsMatch = html.match(/tbl_comp_rank[\\s\\S]{0,5000}?<\\/table>/i);\nlet competitorsContent = '';\nif (competitorsMatch) {\n  competitorsContent = competitorsMatch[0];\n}\n\n// Extract any visible text content for debugging\nconst visibleTextMatch = html.match(/<body[^>]*>([\\s\\S]*)<\\/body>/i);\nlet visibleText = '';\nif (visibleTextMatch) {\n  // Remove script and style tags\n  let bodyContent = visibleTextMatch[1];\n  bodyContent = bodyContent.replace(/<script[\\s\\S]*?<\\/script>/gi, '');\n  bodyContent = bodyContent.replace(/<style[\\s\\S]*?<\\/style>/gi, '');\n  // Extract text only\n  visibleText = bodyContent.replace(/<[^>]*>/g, ' ').replace(/\\s+/g, ' ').trim();\n  // Keep only first 2000 characters for analysis\n  if (visibleText.length > 2000) {\n    visibleText = visibleText.substring(0, 2000) + '...';\n  }\n}\n\nreturn {\n  html_analysis: {\n    html_length: htmlLength,\n    has_table: hasTable,\n    has_h4: hasH4,\n    has_class: hasClass,\n    has_span: hasSpan,\n    has_bizname: hasBizname,\n    has_rating: hasRating,\n    response_headers: headers,\n    status_code: response.statusCode || 'unknown'\n  },\n  extracted_data: basicData,\n  content_samples: {\n    scan_info_section: scanInfoContent.substring(0, 500),\n    competitors_section: competitorsContent.substring(0, 500),\n    visible_text_sample: visibleText.substring(0, 1000)\n  },\n  debugging: {\n    html_start: html.substring(0, 1000),\n    html_contains_keywords: {\n      'local': html.toLowerCase().includes('local'),\n      'rank': html.toLowerCase().includes('rank'),\n      'business': html.toLowerCase().includes('business'),\n      'meisterwerk': html.toLowerCase().includes('meisterwerk'),\n      'folierung': html.toLowerCase().includes('folierung')\n    }\n  },\n  timestamp: new Date().toISOString()\n};"
+      },
+      "typeVersion": 2
+    },
+    {
+      "id": "json-export-001",
+      "name": "3. JSON Export",
+      "type": "n8n-nodes-base.writeBinaryFile",
+      "position": [900, 300],
+      "parameters": {
+        "fileName": "html_analysis_{{ new Date().toISOString().split('T')[0] }}.json",
+        "data": "={{ JSON.stringify($json, null, 2) }}"
+      },
+      "typeVersion": 1
+    }
+  ],
+  "connections": {
+    "Manuel Tetikleme": {
+      "main": [
+        [
+          {
+            "node": "URL Hazırlama",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "URL Hazırlama": {
+      "main": [
+        [
+          {
+            "node": "1. HTTP İsteği",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "1. HTTP İsteği": {
+      "main": [
+        [
+          {
+            "node": "2. HTML Analiz",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "2. HTML Analiz": {
+      "main": [
+        [
+          {
+            "node": "3. JSON Export",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "pinData": {},
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "staticData": null,
+  "tags": [],
+  "triggerCount": 0,
+  "updatedAt": "2024-01-15T12:00:00.000Z",
+  "versionId": "simple-fixed-v1.0"
+}
