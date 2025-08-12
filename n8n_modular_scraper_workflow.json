@@ -475,39 +475,24 @@
       ],
       "notes": "data_exporter.py - Veri birleştirme"
     },
+
     {
       "parameters": {
-        "fileName": "modular_scraped_data_{{ $now.format('YYYYMMDD_HHmmss') }}.json",
-        "dataPropertyName": "data",
-        "options": {}
-      },
-      "id": "4n5o6p7q-8r9s-0t1u-2v3w-x4y5z6a7b8c9",
-      "name": "Write Binary File - JSON",
-      "type": "n8n-nodes-base.writeBinaryFile",
-      "typeVersion": 1,
-      "position": [
-        1980,
-        280
-      ],
-      "notes": "JSON dosyası oluştur"
-    },
-    {
-      "parameters": {
-        "operation": "toFile",
-        "fileFormat": "csv",
-        "options": {
-          "fileName": "={{ 'rakipler_' + $now.format('YYYYMMDD_HHmmss') + '.csv' }}"
+        "chatId": "={{ $json.telegram_chat_id || '@your_channel' }}",
+        "text": "🏢 *Local Rank Report*\\n\\n📊 *İşletme:* {{ $json.ozet_bilgiler['İşletme Adı'] || 'N/A' }}\\n📍 *Adres:* {{ $json.ozet_bilgiler['Adres'] || 'N/A' }}\\n⭐ *Puan:* {{ $json.ozet_bilgiler['Puan'] || 'N/A' }}\\n💬 *Yorumlar:* {{ $json.ozet_bilgiler['Yorum Sayısı'] || 'N/A' }}\\n\\n📈 *Sıralama Bilgileri:*\\n🎯 En İyi Sıralama: {{ $json.ozet_bilgiler['Best rank'] || 'N/A' }}\\n📊 Ortalama Sıralama: {{ $json.ozet_bilgiler['Average rank (Ranked Locations)'] || 'N/A' }}\\n📍 Sıralanan Lokasyon: {{ $json.ozet_bilgiler['Ranked Locations'] || 'N/A' }}\\n\\n🏆 *Rakip Sayısı:* {{ ($json.rakipler || []).length }}\\n📢 *Sponsorlu Liste:* {{ ($json.sponsorlu_listeler || []).length }}\\n\\n✅ Rapor hazırlandı: {{ $now.format('DD.MM.YYYY HH:mm') }}",
+        "additionalFields": {
+          "parse_mode": "Markdown"
         }
       },
-      "id": "5o6p7q8r-9s0t-1u2v-3w4x-y5z6a7b8c9d0",
-      "name": "Convert to File - CSV Competitors",
-      "type": "n8n-nodes-base.convertToFile",
+      "id": "telegram-node-001",
+      "name": "Telegram",
+      "type": "n8n-nodes-base.telegram",
       "typeVersion": 1.1,
       "position": [
         1980,
         400
       ],
-      "notes": "Rakipler CSV dosyası"
+      "notes": "Telegram bildirimi gönder"
     },
     {
       "parameters": {
@@ -808,45 +793,19 @@
       "main": [
         [
           {
-            "node": "Write Binary File - JSON",
-            "type": "main",
-            "index": 0
-          },
-          {
-            "node": "Convert to File - CSV Competitors",
-            "type": "main",
-            "index": 0
-          },
-          {
             "node": "Convert to File - Excel",
             "type": "main",
             "index": 0
-          }
-        ]
-      ]
-    },
-    "Write Binary File - JSON": {
-      "main": [
-        [
+          },
           {
-            "node": "Stop - Success",
+            "node": "Telegram",
             "type": "main",
             "index": 0
           }
         ]
       ]
     },
-    "Convert to File - CSV Competitors": {
-      "main": [
-        [
-          {
-            "node": "Stop - Success",
-            "type": "main",
-            "index": 0
-          }
-        ]
-      ]
-    },
+
     "Convert to File - Excel": {
       "main": [
         [
@@ -854,6 +813,61 @@
             "node": "Stop - Success",
             "type": "main",
             "index": 0
+          }
+        ]
+      ]
+    },
+    "Telegram": {
+      "main": [
+        [
+          {
+            "node": "Stop - Success",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "HTML Extract - Detailed Results": {
+      "main": [
+        [
+          {
+            "node": "Function - Parse Detailed Results",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "HTML Extract - Map Data": {
+      "main": [
+        [
+          {
+            "node": "Function - Parse Map Data",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Function - Parse Detailed Results": {
+      "main": [
+        [
+          {
+            "node": "Merge - + Details",
+            "type": "main",
+            "index": 1
+          }
+        ]
+      ]
+    },
+    "Function - Parse Map Data": {
+      "main": [
+        [
+          {
+            "node": "Merge - + Map Data",
+            "type": "main",
+            "index": 1
           }
         ]
       ]
