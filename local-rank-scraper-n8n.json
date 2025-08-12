@@ -90,30 +90,144 @@
       "typeVersion": 1.1
     },
     {
-      "id": "web-client-basic-001",
-      "name": "1. HTML İçeriği Al (Dynamic)",
-      "type": "n8n-nodes-base.code",
-      "position": [700, 200],
+      "id": "selenium-navigate-001",
+      "name": "1A. Selenium ile Sayfaya Git",
+      "type": "n8n-nodes-base.httpRequest",
+      "position": [720, 200],
       "parameters": {
-        "mode": "runOnceForEachItem",
-        "jsCode": "// Enhanced dynamic web scraping - Improved for detailed content\nconst useSelenium = $input.item.json.use_selenium;\nconst targetUrl = $input.item.json.target_url;\nconst timeout = ($input.item.json.timeout || 30) * 1000;\nconst userAgent = $input.item.json.scraper_metadata?.user_agent || 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36';\n\nif (useSelenium) {\n  // Use browser automation for dynamic content\n  try {\n    // Since n8n doesn't have built-in browser automation,\n    // we'll use a more sophisticated HTTP approach with retries\n    const response = await fetch(targetUrl, {\n      method: 'GET',\n      headers: {\n        'User-Agent': userAgent,\n        'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8',\n        'Accept-Language': 'en-US,en;q=0.9,tr;q=0.8',\n        'Accept-Encoding': 'gzip, deflate, br',\n        'Cache-Control': 'no-cache',\n        'Connection': 'keep-alive',\n        'Upgrade-Insecure-Requests': '1',\n        'Sec-Fetch-Dest': 'document',\n        'Sec-Fetch-Mode': 'navigate',\n        'Sec-Fetch-Site': 'none'\n      }\n    });\n    \n    if (!response.ok) {\n      throw new Error(`HTTP ${response.status}: ${response.statusText}`);\n    }\n    \n    let html = await response.text();\n    \n    // If the HTML seems incomplete (just head section), try alternative approach\n    if (html.length < 5000 || !html.includes('class=') || !html.includes('<main')) {\n      console.log('Initial HTML seems incomplete, trying alternative headers...');\n      \n      // Try with different headers that might bypass some restrictions\n      const response2 = await fetch(targetUrl, {\n        method: 'GET',\n        headers: {\n          'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:109.0) Gecko/20100101 Firefox/115.0',\n          'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,*/*;q=0.8',\n          'Accept-Language': 'en-US,en;q=0.5',\n          'Accept-Encoding': 'gzip, deflate',\n          'DNT': '1',\n          'Connection': 'keep-alive',\n          'Upgrade-Insecure-Requests': '1'\n        }\n      });\n      \n      if (response2.ok) {\n        const html2 = await response2.text();\n        if (html2.length > html.length) {\n          html = html2;\n        }\n      }\n    }\n    \n    return {\n      html: html,\n      method: 'selenium_enhanced',\n      url: targetUrl,\n      timestamp: new Date().toISOString(),\n      html_length: html.length\n    };\n    \n  } catch (error) {\n    return {\n      html: '',\n      method: 'selenium_failed',\n      error: error.message,\n      url: targetUrl,\n      timestamp: new Date().toISOString()\n    };\n  }\n} else {\n  // Basic HTTP request\n  try {\n    const response = await fetch(targetUrl, {\n      method: 'GET',\n      headers: {\n        'User-Agent': userAgent,\n        'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8'\n      }\n    });\n    \n    const html = await response.text();\n    \n    return {\n      html: html,\n      method: 'http_basic',\n      url: targetUrl,\n      timestamp: new Date().toISOString(),\n      html_length: html.length\n    };\n    \n  } catch (error) {\n    return {\n      html: '',\n      method: 'http_failed',\n      error: error.message,\n      url: targetUrl,\n      timestamp: new Date().toISOString()\n    };\n  }\n}"
+        "url": "http://selenium-chrome:4444/wd/hub/session/{{ $json.session_id }}/url",
+        "method": "POST",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "{ \"url\": \"{{ $json.target_url }}\" }",
+        "options": {
+          "timeout": "={{ $json.timeout * 1000 }}",
+          "response": {
+            "response": {
+              "responseFormat": "text"
+            }
+          }
+        }
       },
-      "typeVersion": 2
+      "typeVersion": 4.2
     },
     {
-      "id": "selenium-backup-001",
-      "name": "1B. Selenium Backup (Opsiyonel)",
+      "id": "wait-page-load-001",
+      "name": "1B. Sayfa Yüklenmesi Bekle",
+      "type": "n8n-nodes-base.wait",
+      "position": [820, 200],
+      "parameters": {
+        "amount": 5,
+        "unit": "seconds"
+      },
+      "typeVersion": 1.1
+    },
+    {
+      "id": "selenium-get-html-001",
+      "name": "1C. HTML İçeriğini Al",
       "type": "n8n-nodes-base.httpRequest",
-      "position": [700, 350], 
+      "position": [920, 200],
+      "parameters": {
+        "url": "http://selenium-chrome:4444/wd/hub/session/{{ $('0B. Session ID Çıkar').item.json.session_id }}/source",
+        "method": "GET",
+        "options": {
+          "response": {
+            "response": {
+              "responseFormat": "json"
+            }
+          }
+        }
+      },
+      "typeVersion": 4.2
+    },
+    {
+      "id": "html-formatter-001",
+      "name": "1D. HTML Formatla",
+      "type": "n8n-nodes-base.set",
+      "position": [1020, 200],
+      "parameters": {
+        "fields": {
+          "values": [
+            {
+              "name": "html",
+              "type": "string",
+              "stringValue": "={{ $json.value }}"
+            },
+            {
+              "name": "method",
+              "type": "string",
+              "stringValue": "selenium_browser"
+            },
+            {
+              "name": "url",
+              "type": "string",
+              "stringValue": "={{ $('0B. Session ID Çıkar').item.json.target_url }}"
+            },
+            {
+              "name": "timestamp",
+              "type": "string",
+              "stringValue": "={{ new Date().toISOString() }}"
+            },
+            {
+              "name": "html_length",
+              "type": "number",
+              "numberValue": "={{ $json.value?.length || 0 }}"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "typeVersion": 3.2
+    },
+    {
+      "id": "selenium-session-001",
+      "name": "0. Selenium Session Başlat",
+      "type": "n8n-nodes-base.httpRequest",
+      "position": [550, 200], 
       "parameters": {
         "url": "http://selenium-chrome:4444/wd/hub/session",
         "method": "POST",
         "sendBody": true,
         "specifyBody": "json",
-        "jsonBody": "{\n  \"capabilities\": {\n    \"alwaysMatch\": {\n      \"browserName\": \"chrome\",\n      \"goog:chromeOptions\": {\n        \"args\": [\n          \"--headless\",\n          \"--no-sandbox\",\n          \"--disable-dev-shm-usage\",\n          \"--disable-gpu\",\n          \"--user-agent={{ $('URL ve Ayar Hazırlama').item.json.scraper_metadata.user_agent }}\"\n        ]\n      }\n    }\n  }\n}",
-        "options": {}
+        "jsonBody": "{\n  \"capabilities\": {\n    \"alwaysMatch\": {\n      \"browserName\": \"chrome\",\n      \"goog:chromeOptions\": {\n        \"args\": [\n          \"--headless\",\n          \"--no-sandbox\",\n          \"--disable-dev-shm-usage\",\n          \"--disable-gpu\",\n          \"--disable-web-security\",\n          \"--disable-features=VizDisplayCompositor\",\n          \"--window-size=1920,1080\",\n          \"--user-agent={{ $json.scraper_metadata.user_agent }}\"\n        ]\n      }\n    }\n  }\n}",
+        "options": {
+          "response": {
+            "response": {
+              "responseFormat": "json"
+            }
+          }
+        }
       },
       "typeVersion": 4.2
+    },
+    {
+      "id": "selenium-session-parser-001",
+      "name": "0B. Session ID Çıkar",
+      "type": "n8n-nodes-base.set",
+      "position": [620, 200],
+      "parameters": {
+        "fields": {
+          "values": [
+            {
+              "name": "session_id",
+              "type": "string",
+              "stringValue": "={{ $json.value.sessionId }}"
+            },
+            {
+              "name": "target_url",
+              "type": "string", 
+              "stringValue": "={{ $('URL ve Ayar Hazırlama').item.json.target_url }}"
+            },
+            {
+              "name": "timeout",
+              "type": "number",
+              "numberValue": "={{ $('URL ve Ayar Hazırlama').item.json.timeout }}"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "typeVersion": 3.2
     },
     {
       "id": "html-parser-001",
@@ -402,13 +516,31 @@
       "typeVersion": 3.2
     },
     {
+      "id": "selenium-cleanup-001",
+      "name": "13A. Selenium Session Kapat",
+      "type": "n8n-nodes-base.httpRequest",
+      "position": [2400, 300],
+      "parameters": {
+        "url": "http://selenium-chrome:4444/wd/hub/session/{{ $('0B. Session ID Çıkar').item.json.session_id }}",
+        "method": "DELETE",
+        "options": {
+          "response": {
+            "response": {
+              "responseFormat": "text"
+            }
+          }
+        }
+      },
+      "typeVersion": 4.2
+    },
+    {
       "id": "notification-sender-001",
-      "name": "13. Bildirim Gönder",
+      "name": "13B. Bildirim Gönder",
       "type": "n8n-nodes-base.telegram",
       "position": [2500, 300],
       "parameters": {
         "operation": "sendMessage", 
-        "text": "🕷️ **Local Rank Scraper Tamamlandı!**\n\n🌐 **URL:** {{ $('URL ve Ayar Hazırlama').item.json.target_url }}\n🏢 **İşletme:** {{ $('Final Veri Formatçı').item.json.ozet_bilgiler.business_name }}\n📍 **Lokasyon:** {{ $('Final Veri Formatçı').item.json.ozet_bilgiler.location }}\n🔍 **Arama Terimi:** {{ $('Final Veri Formatçı').item.json.ozet_bilgiler.search_term }}\n\n📊 **Toplanan Veriler:**\n• Rakipler: {{ $json.scraping_summary.total_competitors }}\n• Sponsorlu Listeler: {{ $json.scraping_summary.total_sponsored }}\n• Detaylı Sonuçlar: {{ $json.scraping_summary.total_detailed_results }}\n• API Yanıtları: {{ $json.scraping_summary.api_responses }}\n• JS Veri Alanları: {{ $json.scraping_summary.js_data_fields }}\n• Harita Verisi: {{ $json.scraping_summary.has_map_data ? 'Var ✅' : 'Yok ❌' }}\n\n📁 **Oluşturulan Dosyalar:**\n{{ $json.export_files.map(f => '• ' + f).join('\\n') }}\n\n⏰ **İşlem Süresi:** {{ new Date($('Final Veri Formatçı').item.json.metadata.scraped_at).toLocaleString('tr-TR') }} - {{ new Date().toLocaleString('tr-TR') }}\n\n🎉 **Python main_scraper.py klonu başarıyla tamamlandı!**",
+        "text": "🕷️ **Local Rank Scraper Tamamlandı!**\n\n🌐 **URL:** {{ $('URL ve Ayar Hazırlama').item.json.target_url }}\n🏢 **İşletme:** {{ $('Final Veri Formatçı').item.json.ozet_bilgiler.business_name }}\n📍 **Lokasyon:** {{ $('Final Veri Formatçı').item.json.ozet_bilgiler.location }}\n🔍 **Arama Terimi:** {{ $('Final Veri Formatçı').item.json.ozet_bilgiler.search_term }}\n\n📊 **Toplanan Veriler:**\n• Rakipler: {{ $json.scraping_summary.total_competitors }}\n• Sponsorlu Listeler: {{ $json.scraping_summary.total_sponsored }}\n• Detaylı Sonuçlar: {{ $json.scraping_summary.total_detailed_results }}\n• API Yanıtları: {{ $json.scraping_summary.api_responses }}\n• JS Veri Alanları: {{ $json.scraping_summary.js_data_fields }}\n• Harita Verisi: {{ $json.scraping_summary.has_map_data ? 'Var ✅' : 'Yok ❌' }}\n\n📁 **Oluşturulan Dosyalar:**\n{{ $json.export_files.map(f => '• ' + f).join('\\n') }}\n\n⏰ **İşlem Süresi:** {{ new Date($('Final Veri Formatçı').item.json.metadata.scraped_at).toLocaleString('tr-TR') }} - {{ new Date().toLocaleString('tr-TR') }}\n\n🎉 **Python main_scraper.py klonu başarıyla tamamlandı!**\n\n💻 **Selenium Browser:** ✅ Kapatıldı",
         "chatId": "YOUR_TELEGRAM_CHAT_ID",
         "additionalFields": {
           "parse_mode": "Markdown"
@@ -461,14 +593,69 @@
       "main": [
         [
           {
-            "node": "1. HTML İçeriği Al (Basic)",
+            "node": "0. Selenium Session Başlat",
             "type": "main",
             "index": 0
           }
         ]
       ]
     },
-    "1. HTML İçeriği Al (Basic)": {
+    "0. Selenium Session Başlat": {
+      "main": [
+        [
+          {
+            "node": "0B. Session ID Çıkar",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "0B. Session ID Çıkar": {
+      "main": [
+        [
+          {
+            "node": "1A. Selenium ile Sayfaya Git",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "1A. Selenium ile Sayfaya Git": {
+      "main": [
+        [
+          {
+            "node": "1B. Sayfa Yüklenmesi Bekle",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "1B. Sayfa Yüklenmesi Bekle": {
+      "main": [
+        [
+          {
+            "node": "1C. HTML İçeriğini Al",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "1C. HTML İçeriğini Al": {
+      "main": [
+        [
+          {
+            "node": "1D. HTML Formatla",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "1D. HTML Formatla": {
       "main": [
         [
           {
@@ -660,7 +847,18 @@
       "main": [
         [
           {
-            "node": "13. Bildirim Gönder",
+            "node": "13A. Selenium Session Kapat",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "13A. Selenium Session Kapat": {
+      "main": [
+        [
+          {
+            "node": "13B. Bildirim Gönder",
             "type": "main",
             "index": 0
           }
