@@ -575,6 +575,15 @@
             "index": 0
           }
         ]
+      ],
+      "onError": [
+        [
+          {
+            "node": "Stop and Error - Failure",
+            "type": "main",
+            "index": 0
+          }
+        ]
       ]
     },
     "Function - Extract JS Data": {
@@ -607,6 +616,15 @@
           },
           {
             "node": "HTTP Request - API Competitors",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ],
+      "onError": [
+        [
+          {
+            "node": "Stop and Error - Failure",
             "type": "main",
             "index": 0
           }
@@ -776,6 +794,15 @@
             "index": 1
           }
         ]
+      ],
+      "onError": [
+        [
+          {
+            "node": "Stop and Error - Failure",
+            "type": "main",
+            "index": 0
+          }
+        ]
       ]
     },
     "Merge - + API": {
@@ -799,6 +826,15 @@
           },
           {
             "node": "Telegram",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ],
+      "onError": [
+        [
+          {
+            "node": "Stop and Error - Failure",
             "type": "main",
             "index": 0
           }
