@@ -1,0 +1,840 @@
+{
+  "id": "AdvancedWebScraper2024",
+  "meta": {
+    "instanceId": "advanced-scraper-turkish-001",
+    "templateCredsSetupCompleted": false
+  },
+  "name": "Gelişmiş Web Scraper - AI Destekli Çoklu Platform",
+  "tags": ["scraping", "ai", "automation", "data-extraction"],
+  "nodes": [
+    {
+      "id": "webhook-trigger-001",
+      "name": "Scraping Talebi Webhook",
+      "type": "n8n-nodes-base.webhook",
+      "position": [100, 300],
+      "webhookId": "scraper-webhook-001",
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "scrape-website",
+        "options": {}
+      },
+      "typeVersion": 2
+    },
+    {
+      "id": "manual-trigger-001",
+      "name": "Manuel Test",
+      "type": "n8n-nodes-base.manualTrigger",
+      "position": [100, 200],
+      "parameters": {},
+      "typeVersion": 1
+    },
+    {
+      "id": "url-validator-001",
+      "name": "URL Doğrulayıcı",
+      "type": "n8n-nodes-base.set",
+      "position": [300, 250],
+      "parameters": {
+        "fields": {
+          "values": [
+            {
+              "name": "target_url",
+              "type": "string",
+              "stringValue": "={{ $json.url || $json.body.url || 'https://example.com' }}"
+            },
+            {
+              "name": "scraping_method",
+              "type": "string", 
+              "stringValue": "={{ $json.method || $json.body.method || 'auto' }}"
+            },
+            {
+              "name": "extract_type",
+              "type": "string",
+              "stringValue": "={{ $json.extract_type || $json.body.extract_type || 'general' }}"
+            },
+            {
+              "name": "ai_analysis",
+              "type": "boolean",
+              "booleanValue": "={{ $json.ai_analysis || $json.body.ai_analysis || true }}"
+            },
+            {
+              "name": "anti_detection",
+              "type": "boolean", 
+              "booleanValue": "={{ $json.anti_detection || $json.body.anti_detection || true }}"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "typeVersion": 3.2
+    },
+    {
+      "id": "method-selector-001",
+      "name": "Scraping Yöntemi Seçici",
+      "type": "n8n-nodes-base.switch",
+      "position": [500, 250],
+      "parameters": {
+        "options": {},
+        "conditions": {
+          "options": {
+            "caseSensitive": false
+          },
+          "conditions": [
+            {
+              "id": "selenium-method",
+              "leftValue": "={{ $json.scraping_method }}",
+              "rightValue": "selenium",
+              "operator": {
+                "type": "string",
+                "operation": "equals"
+              }
+            },
+            {
+              "id": "scrapingbee-method", 
+              "leftValue": "={{ $json.scraping_method }}",
+              "rightValue": "scrapingbee",
+              "operator": {
+                "type": "string",
+                "operation": "equals"
+              }
+            },
+            {
+              "id": "jina-method",
+              "leftValue": "={{ $json.scraping_method }}",
+              "rightValue": "jina",
+              "operator": {
+                "type": "string",
+                "operation": "equals"
+              }
+            },
+            {
+              "id": "apify-method",
+              "leftValue": "={{ $json.scraping_method }}",
+              "rightValue": "apify", 
+              "operator": {
+                "type": "string",
+                "operation": "equals"
+              }
+            }
+          ]
+        },
+        "fallbackOutput": "extra"
+      },
+      "typeVersion": 3
+    },
+    {
+      "id": "selenium-scraper-001",
+      "name": "Selenium Web Scraper",
+      "type": "n8n-nodes-base.httpRequest",
+      "position": [700, 100],
+      "parameters": {
+        "url": "http://selenium-chrome:4444/wd/hub/session",
+        "method": "POST",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "{\n  \"capabilities\": {\n    \"alwaysMatch\": {\n      \"browserName\": \"chrome\",\n      \"goog:chromeOptions\": {\n        \"args\": [\n          \"--no-sandbox\",\n          \"--disable-dev-shm-usage\",\n          \"--disable-gpu\",\n          \"--disable-web-security\",\n          \"--disable-features=VizDisplayCompositor\",\n          \"--user-agent=Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36\"\n        ]\n      }\n    }\n  }\n}",
+        "options": {}
+      },
+      "typeVersion": 4.2
+    },
+    {
+      "id": "selenium-navigate-001",
+      "name": "Selenium Navigasyon",
+      "type": "n8n-nodes-base.httpRequest",
+      "position": [900, 100],
+      "parameters": {
+        "url": "=http://selenium-chrome:4444/wd/hub/session/{{ $('Selenium Web Scraper').item.json.value.sessionId }}/url",
+        "method": "POST",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\n  \"url\": \"{{ $('URL Doğrulayıcı').item.json.target_url }}\"\n}",
+        "options": {}
+      },
+      "typeVersion": 4.2
+    },
+    {
+      "id": "selenium-cleanup-001",
+      "name": "Anti-Detection Script",
+      "type": "n8n-nodes-base.httpRequest",
+      "position": [1100, 100],
+      "parameters": {
+        "url": "=http://selenium-chrome:4444/wd/hub/session/{{ $('Selenium Web Scraper').item.json.value.sessionId }}/execute/sync",
+        "method": "POST",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "{\n  \"script\": \"Object.defineProperty(navigator, 'webdriver', { get: () => undefined }); window.navigator.chrome = { runtime: {} }; Object.defineProperty(navigator, 'languages', { get: () => ['tr-TR', 'tr', 'en-US', 'en'] }); Object.defineProperty(navigator, 'plugins', { get: () => [1, 2, 3, 4, 5] }); document.documentElement.style.setProperty('--webdriver', 'false'); window.webdriver = false;\",\n  \"args\": []\n}",
+        "options": {}
+      },
+      "typeVersion": 4.2
+    },
+    {
+      "id": "selenium-extract-001",
+      "name": "Selenium İçerik Çıkarma",
+      "type": "n8n-nodes-base.httpRequest",
+      "position": [1300, 100],
+      "parameters": {
+        "url": "=http://selenium-chrome:4444/wd/hub/session/{{ $('Selenium Web Scraper').item.json.value.sessionId }}/source",
+        "method": "GET",
+        "options": {}
+      },
+      "typeVersion": 4.2
+    },
+    {
+      "id": "scrapingbee-scraper-001",
+      "name": "ScrapingBee API Scraper",
+      "type": "n8n-nodes-base.httpRequest",
+      "position": [700, 200],
+      "parameters": {
+        "url": "https://app.scrapingbee.com/api/v1",
+        "method": "GET",
+        "sendQuery": true,
+        "queryParameters": {
+          "parameters": [
+            {
+              "name": "api_key",
+              "value": "YOUR_SCRAPINGBEE_API_KEY"
+            },
+            {
+              "name": "url",
+              "value": "={{ $('URL Doğrulayıcı').item.json.target_url }}"
+            },
+            {
+              "name": "render_js",
+              "value": "true"
+            },
+            {
+              "name": "premium_proxy",
+              "value": "true"
+            },
+            {
+              "name": "country_code",
+              "value": "tr"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "typeVersion": 4.2
+    },
+    {
+      "id": "jina-scraper-001",
+      "name": "Jina AI Reader",
+      "type": "n8n-nodes-base.httpRequest",
+      "position": [700, 300],
+      "parameters": {
+        "url": "=https://r.jina.ai/{{ $('URL Doğrulayıcı').item.json.target_url }}",
+        "method": "GET",
+        "options": {
+          "timeout": 30000
+        },
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Authorization",
+              "value": "Bearer YOUR_JINA_API_KEY"
+            },
+            {
+              "name": "X-Return-Format",
+              "value": "markdown"
+            },
+            {
+              "name": "X-With-Generated-Alt",
+              "value": "true"
+            }
+          ]
+        }
+      },
+      "typeVersion": 4.2
+    },
+    {
+      "id": "apify-scraper-001",
+      "name": "Apify Universal Scraper",
+      "type": "n8n-nodes-base.httpRequest",
+      "position": [700, 400],
+      "parameters": {
+        "url": "https://api.apify.com/v2/acts/apify~web-scraper/run-sync-get-dataset-items",
+        "method": "POST",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\n  \"startUrls\": [\n    {\"url\": \"{{ $('URL Doğrulayıcı').item.json.target_url }}\"}\n  ],\n  \"linkSelector\": \"a[href]\",\n  \"pageFunction\": \"async function pageFunction(context) {\\n    const { page, request } = context;\\n    const title = await page.title();\\n    const html = await page.content();\\n    return {\\n      url: request.url,\\n      title: title,\\n      html: html,\\n      text: await page.evaluate(() => document.body.innerText)\\n    };\\n  }\",\n  \"proxyConfiguration\": {\"useApifyProxy\": true}\n}",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Authorization",
+              "value": "Bearer YOUR_APIFY_API_TOKEN"
+            },
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "typeVersion": 4.2
+    },
+    {
+      "id": "basic-http-scraper-001",
+      "name": "Basit HTTP Scraper",
+      "type": "n8n-nodes-base.httpRequest",
+      "position": [700, 500],
+      "parameters": {
+        "url": "={{ $('URL Doğrulayıcı').item.json.target_url }}",
+        "method": "GET",
+        "options": {
+          "timeout": 15000,
+          "followRedirect": true
+        },
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "User-Agent",
+              "value": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36"
+            },
+            {
+              "name": "Accept",
+              "value": "text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8"
+            },
+            {
+              "name": "Accept-Language",
+              "value": "tr-TR,tr;q=0.9,en-US;q=0.8,en;q=0.7"
+            }
+          ]
+        }
+      },
+      "typeVersion": 4.2
+    },
+    {
+      "id": "content-merger-001",
+      "name": "İçerik Birleştirici",
+      "type": "n8n-nodes-base.merge",
+      "position": [1100, 300],
+      "parameters": {
+        "mode": "combine",
+        "options": {},
+        "mergeByFields": {
+          "values": []
+        },
+        "outputDataFrom": "input1"
+      },
+      "typeVersion": 2.1
+    },
+    {
+      "id": "html-content-extractor-001",
+      "name": "HTML İçerik Çıkarıcı",
+      "type": "n8n-nodes-base.html",
+      "position": [1300, 300],
+      "parameters": {
+        "operation": "extractHtmlContent",
+        "extractionValues": {
+          "values": [
+            {
+              "key": "title",
+              "cssSelector": "title, h1",
+              "returnValue": "text",
+              "returnArray": false
+            },
+            {
+              "key": "description",
+              "cssSelector": "meta[name='description'], meta[property='og:description']",
+              "returnValue": "attribute",
+              "attribute": "content",
+              "returnArray": false
+            },
+            {
+              "key": "headings",
+              "cssSelector": "h1, h2, h3, h4, h5, h6",
+              "returnValue": "text",
+              "returnArray": true
+            },
+            {
+              "key": "paragraphs",
+              "cssSelector": "p",
+              "returnValue": "text",
+              "returnArray": true
+            },
+            {
+              "key": "links",
+              "cssSelector": "a[href]",
+              "returnValue": "attribute",
+              "attribute": "href",
+              "returnArray": true
+            },
+            {
+              "key": "images",
+              "cssSelector": "img[src]",
+              "returnValue": "attribute", 
+              "attribute": "src",
+              "returnArray": true
+            },
+            {
+              "key": "main_content",
+              "cssSelector": "main, article, .content, .main-content, .post-content, #content",
+              "returnValue": "text",
+              "returnArray": false
+            }
+          ]
+        },
+        "options": {}
+      },
+      "typeVersion": 1.2
+    },
+    {
+      "id": "ai-content-analyzer-001",
+      "name": "AI İçerik Analizci",
+      "type": "@n8n/n8n-nodes-langchain.chainLlm",
+      "position": [1500, 200],
+      "parameters": {
+        "prompt": "URL: {{ $('URL Doğrulayıcı').item.json.target_url }}\n\nSayfa Başlığı: {{ $json.title }}\nAçıklama: {{ $json.description }}\nAna İçerik: {{ $json.main_content }}\nBaşlıklar: {{ $json.headings }}\n\nEkstra Bilgi: {{ $('URL Doğrulayıcı').item.json.extract_type }}",
+        "messages": {
+          "messageValues": [
+            {
+              "message": "Bu web sayfasını analiz et ve aşağıdaki bilgileri JSON formatında çıkar:\n\n```json\n{\n  \"site_type\": \"web sitesi türü (e-ticaret, blog, haber, kurumsal, vb.)\",\n  \"language\": \"içerik dili\",\n  \"main_topic\": \"ana konu\",\n  \"summary\": \"sayfanın kısa özeti (max 300 kelime)\",\n  \"key_points\": [\"önemli noktalar listesi\"],\n  \"entities\": {\n    \"persons\": [\"kişi isimleri\"],\n    \"organizations\": [\"kurum/şirket isimleri\"],\n    \"locations\": [\"yer isimleri\"],\n    \"products\": [\"ürün/hizmet isimleri\"],\n    \"dates\": [\"tarihler\"],\n    \"prices\": [\"fiyat bilgileri\"]\n  },\n  \"sentiment\": \"pozitif/negatif/nötr\",\n  \"content_quality\": \"1-10 arası kalite skoru\",\n  \"seo_analysis\": {\n    \"title_optimized\": true/false,\n    \"meta_description_exists\": true/false,\n    \"heading_structure\": \"iyi/orta/kötü\",\n    \"keyword_density\": \"düşük/orta/yüksek\"\n  },\n  \"categorization\": [\"kategori etiketleri\"],\n  \"technical_info\": {\n    \"responsive_design\": \"var/yok tahmin\",\n    \"load_time_estimate\": \"hızlı/orta/yavaş\",\n    \"accessibility_score\": \"1-10 arası tahmin\"\n  },\n  \"action_items\": [\"önerilen aksiyonlar\"],\n  \"contact_info\": {\n    \"email\": \"bulunursa email\",\n    \"phone\": \"bulunursa telefon\",\n    \"address\": \"bulunursa adres\",\n    \"social_media\": [\"sosyal medya linkleri\"]\n  }\n}\n```\n\nSadece JSON formatında yanıt ver, açıklama yapma. Türkçe analiz yap."
+            }
+          ]
+        }
+      },
+      "typeVersion": 1.3
+    },
+    {
+      "id": "ai-model-main-001",
+      "name": "OpenAI Ana Model",
+      "type": "@n8n/n8n-nodes-langchain.lmChatOpenAi",
+      "position": [1400, 500],
+      "parameters": {
+        "model": "gpt-4o",
+        "options": {
+          "temperature": 0.2,
+          "maxTokens": 3000
+        }
+      },
+      "credentials": {
+        "openAiApi": {
+          "id": "openai-credentials",
+          "name": "OpenAI API"
+        }
+      },
+      "typeVersion": 1
+    },
+    {
+      "id": "json-parser-001",
+      "name": "AI Analiz JSON Parser",
+      "type": "n8n-nodes-base.set",
+      "position": [1700, 200],
+      "parameters": {
+        "fields": {
+          "values": [
+            {
+              "name": "ai_analysis",
+              "type": "object",
+              "objectValue": "={{ JSON.parse($json.output) }}"
+            },
+            {
+              "name": "raw_content",
+              "type": "object",
+              "objectValue": "={{ $('HTML İçerik Çıkarıcı').item.json }}"
+            },
+            {
+              "name": "scraping_metadata",
+              "type": "object",
+              "objectValue": "={{ {\n  'scraped_at': new Date().toISOString(),\n  'target_url': $('URL Doğrulayıcı').item.json.target_url,\n  'method_used': $('URL Doğrulayıcı').item.json.scraping_method,\n  'ai_enabled': $('URL Doğrulayıcı').item.json.ai_analysis\n} }}"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "typeVersion": 3.2
+    },
+    {
+      "id": "data-storage-switch-001",
+      "name": "Veri Saklama Seçici",
+      "type": "n8n-nodes-base.switch",
+      "position": [1900, 200],
+      "parameters": {
+        "options": {},
+        "conditions": {
+          "options": {
+            "caseSensitive": false
+          },
+          "conditions": [
+            {
+              "id": "save-to-sheets",
+              "leftValue": "true",
+              "rightValue": "true",
+              "operator": {
+                "type": "boolean",
+                "operation": "true"
+              }
+            }
+          ]
+        },
+        "fallbackOutput": "extra"
+      },
+      "typeVersion": 3
+    },
+    {
+      "id": "google-sheets-save-001",
+      "name": "Google Sheets'e Kaydet",
+      "type": "n8n-nodes-base.googleSheets",
+      "position": [2100, 100],
+      "parameters": {
+        "operation": "appendOrUpdate",
+        "documentId": {
+          "__rl": true,
+          "value": "YOUR_GOOGLE_SHEET_ID",
+          "mode": "url"
+        },
+        "sheetName": "Scraped_Data",
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "url": "={{ $json.scraping_metadata.target_url }}",
+            "title": "={{ $json.ai_analysis.main_topic }}",
+            "site_type": "={{ $json.ai_analysis.site_type }}",
+            "language": "={{ $json.ai_analysis.language }}",
+            "summary": "={{ $json.ai_analysis.summary }}",
+            "sentiment": "={{ $json.ai_analysis.sentiment }}",
+            "quality_score": "={{ $json.ai_analysis.content_quality }}",
+            "categories": "={{ $json.ai_analysis.categorization ? $json.ai_analysis.categorization.join(', ') : '' }}",
+            "scraped_at": "={{ $json.scraping_metadata.scraped_at }}",
+            "method_used": "={{ $json.scraping_metadata.method_used }}",
+            "contact_email": "={{ $json.ai_analysis.contact_info?.email || '' }}",
+            "contact_phone": "={{ $json.ai_analysis.contact_info?.phone || '' }}"
+          }
+        },
+        "options": {}
+      },
+      "credentials": {
+        "googleSheetsOAuth2Api": {
+          "id": "google-sheets-credentials",
+          "name": "Google Sheets OAuth2"
+        }
+      },
+      "typeVersion": 4.4
+    },
+    {
+      "id": "supabase-save-001",
+      "name": "Supabase'e Kaydet",
+      "type": "n8n-nodes-base.supabase",
+      "position": [2100, 200],
+      "parameters": {
+        "operation": "insert",
+        "table": "scraped_websites",
+        "fields": {
+          "values": [
+            {
+              "name": "url",
+              "stringValue": "={{ $json.scraping_metadata.target_url }}"
+            },
+            {
+              "name": "title",
+              "stringValue": "={{ $json.raw_content.title }}"
+            },
+            {
+              "name": "ai_analysis",
+              "stringValue": "={{ JSON.stringify($json.ai_analysis) }}"
+            },
+            {
+              "name": "raw_content",
+              "stringValue": "={{ JSON.stringify($json.raw_content) }}"
+            },
+            {
+              "name": "metadata",
+              "stringValue": "={{ JSON.stringify($json.scraping_metadata) }}"
+            },
+            {
+              "name": "scraped_at",
+              "stringValue": "={{ $json.scraping_metadata.scraped_at }}"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "credentials": {
+        "supabaseApi": {
+          "id": "supabase-credentials",
+          "name": "Supabase API"
+        }
+      },
+      "typeVersion": 1
+    },
+    {
+      "id": "telegram-notification-001",
+      "name": "Telegram Bildirim",
+      "type": "n8n-nodes-base.telegram",
+      "position": [2100, 300],
+      "parameters": {
+        "operation": "sendMessage",
+        "text": "🕷️ **Yeni Site Scraped!**\n\n🌐 **URL:** {{ $json.scraping_metadata.target_url }}\n📋 **Site Türü:** {{ $json.ai_analysis.site_type }}\n🗣️ **Dil:** {{ $json.ai_analysis.language }}\n📊 **Kalite Skoru:** {{ $json.ai_analysis.content_quality }}/10\n😊 **Sentiment:** {{ $json.ai_analysis.sentiment }}\n🔧 **Method:** {{ $json.scraping_metadata.method_used }}\n\n📝 **Özet:**\n{{ $json.ai_analysis.summary }}\n\n🏷️ **Kategoriler:** {{ $json.ai_analysis.categorization ? $json.ai_analysis.categorization.join(', ') : 'Yok' }}\n\n⏰ **Tarih:** {{ new Date($json.scraping_metadata.scraped_at).toLocaleString('tr-TR') }}",
+        "chatId": "YOUR_TELEGRAM_CHAT_ID",
+        "additionalFields": {
+          "parse_mode": "Markdown"
+        }
+      },
+      "credentials": {
+        "telegramApi": {
+          "id": "telegram-credentials",
+          "name": "Telegram Bot API"
+        }
+      },
+      "typeVersion": 1.1
+    },
+    {
+      "id": "selenium-cleanup-session-001",
+      "name": "Selenium Session Temizle",
+      "type": "n8n-nodes-base.httpRequest",
+      "position": [1500, 100],
+      "parameters": {
+        "url": "=http://selenium-chrome:4444/wd/hub/session/{{ $('Selenium Web Scraper').item.json.value.sessionId }}",
+        "method": "DELETE",
+        "options": {}
+      },
+      "typeVersion": 4.2
+    }
+  ],
+  "connections": {
+    "Scraping Talebi Webhook": {
+      "main": [
+        [
+          {
+            "node": "URL Doğrulayıcı",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Manuel Test": {
+      "main": [
+        [
+          {
+            "node": "URL Doğrulayıcı",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "URL Doğrulayıcı": {
+      "main": [
+        [
+          {
+            "node": "Scraping Yöntemi Seçici",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Scraping Yöntemi Seçici": {
+      "main": [
+        [
+          {
+            "node": "Selenium Web Scraper",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "ScrapingBee API Scraper",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Jina AI Reader",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Apify Universal Scraper",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Basit HTTP Scraper",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Selenium Web Scraper": {
+      "main": [
+        [
+          {
+            "node": "Selenium Navigasyon",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Selenium Navigasyon": {
+      "main": [
+        [
+          {
+            "node": "Anti-Detection Script",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Anti-Detection Script": {
+      "main": [
+        [
+          {
+            "node": "Selenium İçerik Çıkarma",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Selenium İçerik Çıkarma": {
+      "main": [
+        [
+          {
+            "node": "Selenium Session Temizle",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "İçerik Birleştirici",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "ScrapingBee API Scraper": {
+      "main": [
+        [
+          {
+            "node": "İçerik Birleştirici",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Jina AI Reader": {
+      "main": [
+        [
+          {
+            "node": "İçerik Birleştirici",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Apify Universal Scraper": {
+      "main": [
+        [
+          {
+            "node": "İçerik Birleştirici",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Basit HTTP Scraper": {
+      "main": [
+        [
+          {
+            "node": "İçerik Birleştirici",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "İçerik Birleştirici": {
+      "main": [
+        [
+          {
+            "node": "HTML İçerik Çıkarıcı",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "HTML İçerik Çıkarıcı": {
+      "main": [
+        [
+          {
+            "node": "AI İçerik Analizci",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "AI İçerik Analizci": {
+      "main": [
+        [
+          {
+            "node": "AI Analiz JSON Parser",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "AI Ana Model": {
+      "ai_languageModel": [
+        [
+          {
+            "node": "AI İçerik Analizci",
+            "type": "ai_languageModel",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "AI Analiz JSON Parser": {
+      "main": [
+        [
+          {
+            "node": "Veri Saklama Seçici",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Veri Saklama Seçici": {
+      "main": [
+        [
+          {
+            "node": "Google Sheets'e Kaydet",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Supabase'e Kaydet",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Telegram Bildirim",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  }
+}

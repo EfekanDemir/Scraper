@@ -1,0 +1,1004 @@
+{
+  "id": "LocalRankScraperClone",
+  "meta": {
+    "instanceId": "local-rank-scraper-clone-001",
+    "templateCredsSetupCompleted": false
+  },
+  "name": "Local Rank Report Scraper - Python Klon",
+  "description": "Python main_scraper.py projesinin aynısını yapan n8n workflow'u. Hibrit scraping ile Local Rank Report sitesinden veri çeker.",
+  "tags": ["scraping", "local-rank", "hibrit", "modular", "python-clone"],
+  "nodes": [
+    {
+      "id": "manual-trigger-001",
+      "name": "Manuel Tetikleme",
+      "type": "n8n-nodes-base.manualTrigger",
+      "position": [100, 300],
+      "parameters": {},
+      "typeVersion": 1
+    },
+    {
+      "id": "webhook-trigger-001", 
+      "name": "Webhook Tetikleme",
+      "type": "n8n-nodes-base.webhook",
+      "position": [100, 200],
+      "webhookId": "local-rank-scraper-webhook",
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "scrape-local-rank",
+        "options": {}
+      },
+      "typeVersion": 2
+    },
+    {
+      "id": "url-setup-001",
+      "name": "URL ve Ayar Hazırlama",
+      "type": "n8n-nodes-base.set",
+      "position": [300, 250],
+      "parameters": {
+        "fields": {
+          "values": [
+            {
+              "name": "target_url",
+              "type": "string",
+              "stringValue": "={{ $json.url || $json.body?.url || 'https://www.local-rank.report/scan/97919fde-e478-4081-983f-7e0065b6b5bb' }}"
+            },
+            {
+              "name": "use_selenium",
+              "type": "boolean",
+              "booleanValue": "={{ $json.use_selenium || $json.body?.use_selenium || true }}"
+            },
+            {
+              "name": "rate_limit",
+              "type": "number",
+              "numberValue": "={{ $json.rate_limit || $json.body?.rate_limit || 1.0 }}"
+            },
+            {
+              "name": "timeout",
+              "type": "number", 
+              "numberValue": "={{ $json.timeout || $json.body?.timeout || 30 }}"
+            },
+            {
+              "name": "base_filename",
+              "type": "string",
+              "stringValue": "={{ $json.base_filename || $json.body?.base_filename || 'modular_scraped_data' }}"
+            },
+            {
+              "name": "timestamp",
+              "type": "string",
+              "stringValue": "={{ new Date().toISOString().replace(/[:.]/g, '_').replace(/[T]/g, '_').split('_')[0] + '_' + new Date().toISOString().replace(/[:.]/g, '_').replace(/[T]/g, '_').split('_')[1] + new Date().toISOString().replace(/[:.]/g, '_').replace(/[T]/g, '_').split('_')[2] }}"
+            },
+            {
+              "name": "scraper_metadata",
+              "type": "object",
+              "objectValue": "={{ {\n  'scraped_at': new Date().toISOString(),\n  'scraper_version': '4.0_n8n',\n  'method': 'modular_hybrid_n8n',\n  'user_agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36'\n} }}"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "typeVersion": 3.2
+    },
+    {
+      "id": "wait-rate-limit-001",
+      "name": "Rate Limiting",
+      "type": "n8n-nodes-base.wait",
+      "position": [500, 250],
+      "parameters": {
+        "amount": "={{ $json.rate_limit }}",
+        "unit": "seconds"
+      },
+      "typeVersion": 1.1
+    },
+    {
+      "id": "selenium-navigate-001",
+      "name": "1A. Selenium ile Sayfaya Git",
+      "type": "n8n-nodes-base.httpRequest",
+      "position": [720, 200],
+      "parameters": {
+        "url": "http://selenium-chrome:4444/wd/hub/session/{{ $json.session_id }}/url",
+        "method": "POST",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "{ \"url\": \"{{ $json.target_url }}\" }",
+        "options": {
+          "timeout": "={{ $json.timeout * 1000 }}",
+          "response": {
+            "response": {
+              "responseFormat": "text"
+            }
+          }
+        }
+      },
+      "typeVersion": 4.2
+    },
+    {
+      "id": "wait-page-load-001",
+      "name": "1B. Sayfa Yüklenmesi Bekle",
+      "type": "n8n-nodes-base.wait",
+      "position": [820, 200],
+      "parameters": {
+        "amount": 15,
+        "unit": "seconds"
+      },
+      "typeVersion": 1.1
+    },
+    {
+      "id": "selenium-wait-dynamic-001",
+      "name": "1C. Dinamik İçerik Bekle",
+      "type": "n8n-nodes-base.httpRequest",
+      "position": [920, 200],
+      "parameters": {
+        "url": "http://selenium-chrome:4444/wd/hub/session/{{ $('0B. Session ID Çıkar').item.json.session_id }}/element",
+        "method": "POST",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "{ \"using\": \"css selector\", \"value\": \".business-info, .competitor-list, .scan-results, [data-testid]\" }",
+        "options": {
+          "timeout": 30000,
+          "response": {
+            "response": {
+              "responseFormat": "json"
+            }
+          }
+        }
+      },
+      "typeVersion": 4.2
+    },
+    {
+      "id": "selenium-get-html-001",
+      "name": "1D. HTML İçeriğini Al",
+      "type": "n8n-nodes-base.httpRequest",
+      "position": [1020, 200],
+      "parameters": {
+        "url": "http://selenium-chrome:4444/wd/hub/session/{{ $('0B. Session ID Çıkar').item.json.session_id }}/source",
+        "method": "GET",
+        "options": {
+          "response": {
+            "response": {
+              "responseFormat": "json"
+            }
+          }
+        }
+      },
+      "typeVersion": 4.2
+    },
+    {
+      "id": "html-formatter-001",
+      "name": "1E. HTML Formatla",
+      "type": "n8n-nodes-base.set",
+      "position": [1120, 200],
+      "parameters": {
+        "fields": {
+          "values": [
+            {
+              "name": "html",
+              "type": "string",
+              "stringValue": "={{ $json.value }}"
+            },
+            {
+              "name": "method",
+              "type": "string",
+              "stringValue": "selenium_browser_dynamic"
+            },
+            {
+              "name": "url",
+              "type": "string",
+              "stringValue": "={{ $('0B. Session ID Çıkar').item.json.target_url }}"
+            },
+            {
+              "name": "timestamp",
+              "type": "string",
+              "stringValue": "={{ new Date().toISOString() }}"
+            },
+            {
+              "name": "html_length",
+              "type": "number",
+              "numberValue": "={{ $json.value?.length || 0 }}"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "typeVersion": 3.2
+    },
+    {
+      "id": "web-client-basic-001",
+      "name": "1A. Web Client - Temel",
+      "type": "n8n-nodes-base.httpRequest",
+      "position": [580, 300],
+      "parameters": {
+        "url": "={{ $('1. URL Ayarları').item(0).$node['url-setup-001'].json.target_url }}",
+        "options": {
+          "timeout": 60000,
+          "redirect": {
+            "followRedirects": true,
+            "maxRedirects": 5
+          },
+          "retry": {
+            "enabled": true,
+            "maxAttempts": 3
+          }
+        },
+        "authentication": "none",
+        "requestMethod": "GET",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "User-Agent",
+              "value": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
+            },
+            {
+              "name": "Accept",
+              "value": "text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8,application/signed-exchange;v=b3;q=0.7"
+            },
+            {
+              "name": "Accept-Language",
+              "value": "en-US,en;q=0.9,tr;q=0.8"
+            },
+            {
+              "name": "Accept-Encoding",
+              "value": "gzip, deflate, br"
+            },
+            {
+              "name": "Cache-Control",
+              "value": "no-cache"
+            },
+            {
+              "name": "Pragma",
+              "value": "no-cache"
+            },
+            {
+              "name": "Connection",
+              "value": "keep-alive"
+            },
+            {
+              "name": "Upgrade-Insecure-Requests",
+              "value": "1"
+            },
+            {
+              "name": "Sec-Fetch-Dest",
+              "value": "document"
+            },
+            {
+              "name": "Sec-Fetch-Mode",
+              "value": "navigate"
+            },
+            {
+              "name": "Sec-Fetch-Site",
+              "value": "none"
+            },
+            {
+              "name": "Sec-Fetch-User",
+              "value": "?1"
+            }
+          ]
+        }
+      },
+      "typeVersion": 4.2
+    },
+    {
+      "id": "selenium-improved-001",
+      "name": "1B. Selenium ile Web Scraping",
+      "type": "n8n-nodes-base.code",
+      "position": [580, 400],
+      "parameters": {
+        "mode": "runOnceForEachItem",
+        "jsCode": "// Improved Selenium scraping that waits for content to load\nconst targetUrl = $('1. URL Ayarları').item(0).$node['url-setup-001'].json.target_url;\nconst useSelenium = $('1. URL Ayarları').item(0).$node['url-setup-001'].json.use_selenium;\n\nif (!useSelenium) {\n  // If not using Selenium, pass through the basic HTTP result\n  return $input.item.json;\n}\n\n// For Selenium, we'll simulate a browser request with proper waiting\n// In a real n8n environment, you would use a Selenium Grid or external service\n// For now, let's create an enhanced HTTP request with better headers and timing\n\nfunction sleep(ms) {\n  return new Promise(resolve => setTimeout(resolve, ms));\n}\n\nasync function improvedScraping() {\n  try {\n    // Add delay to simulate JavaScript loading time\n    await sleep(3000);\n    \n    // Use the basic HTTP result but add enhanced processing\n    let htmlContent = $input.item.json.body || $input.item.json.html || '';\n    \n    // If HTML is too short, it might be a redirect or loading page\n    if (htmlContent.length < 10000) {\n      // Log the issue for debugging\n      console.log('HTML content seems incomplete. Length:', htmlContent.length);\n      console.log('First 500 chars:', htmlContent.substring(0, 500));\n      \n      return {\n        html: htmlContent,\n        warning: 'HTML content may be incomplete - consider using Selenium Grid',\n        content_length: htmlContent.length,\n        needs_selenium: true,\n        url: targetUrl\n      };\n    }\n    \n    return {\n      html: htmlContent,\n      content_length: htmlContent.length,\n      scraping_method: 'enhanced_http',\n      url: targetUrl\n    };\n    \n  } catch (error) {\n    return {\n      error: error.message,\n      html: '',\n      needs_selenium: true,\n      url: targetUrl\n    };\n  }\n}\n\nreturn await improvedScraping();"
+      },
+      "typeVersion": 2
+    },
+
+    {
+      "id": "html-parser-001",
+      "name": "2. HTML Parser - Özet Bilgiler",
+      "type": "n8n-nodes-base.code",
+      "position": [900, 100],
+      "parameters": {
+        "mode": "runOnceForEachItem",
+        "jsCode": "// Parse Scan Information from HTML using same logic as Python scraper\nconst html = $input.item.json.html;\nif (!html) {\n  return { scan_information: {}, error: 'No HTML content' };\n}\n\n// Create a simple HTML parser function\nfunction parseHTML(htmlString) {\n  // Since we can't use cheerio/jsdom in n8n, we'll use regex parsing\n  const results = {};\n  \n  try {\n    // Look for Scan Information section\n    const scanInfoMatch = htmlString.match(/<h4[^>]*>\\s*Scan Information\\s*<\\/h4>[\\s\\S]*?<table[^>]*>([\\s\\S]*?)<\\/table>/i);\n    \n    if (scanInfoMatch) {\n      const tableContent = scanInfoMatch[1];\n      \n      // Extract business name (look for bizname class)\n      const bizNameMatch = tableContent.match(/<span[^>]*class=[\"']?[^\"']*bizname[^\"']*[\"']?[^>]*>([^<]+)<\\/span>/i);\n      if (bizNameMatch) {\n        results['İşletme Adı'] = bizNameMatch[1].trim();\n      }\n      \n      // Extract address (look for center-block class)\n      const addressMatch = tableContent.match(/<span[^>]*class=[\"']?[^\"']*center-block[^\"']*[\"']?[^>]*>([^<]+)<\\/span>/i);\n      if (addressMatch) {\n        results['Adres'] = addressMatch[1].trim();\n      }\n      \n      // Extract rating and reviews\n      const ratingMatch = tableContent.match(/title=[\"']?([0-9]+(?:[\\.,][0-9]+)?)\\s*out\\s*of\\s*5[\"']?/i);\n      if (ratingMatch) {\n        results['Puan'] = ratingMatch[1].replace(',', '.');\n      } else {\n        results['Puan'] = 'N/A';\n      }\n      \n      // Extract keyword\n      const keywordMatch = tableContent.match(/<td[^>]*>\\s*Keyword[\\s\\S]*?<\\/td>\\s*<td[^>]*>([^<]+)<\\/td>/i);\n      if (keywordMatch) {\n        results['Anahtar Kelime ve Dil'] = keywordMatch[1].trim();\n      }\n      \n      // Extract date\n      const dateMatch = tableContent.match(/<td[^>]*class=[\"']?[^\"']*cnv_dt_lcl[^\"']*[\"']?[^>]*>([^<]+)<\\/td>/i);\n      if (dateMatch) {\n        results['Tarih'] = dateMatch[1].trim();\n      }\n    }\n    \n    // Also look for Rank Summary section\n    const rankSummaryMatch = htmlString.match(/<h4[^>]*>\\s*Rank Summary\\s*<\\/h4>[\\s\\S]*?<table[^>]*>([\\s\\S]*?)<\\/table>/i);\n    \n    if (rankSummaryMatch) {\n      const rankTableContent = rankSummaryMatch[1];\n      \n      // Extract ranked locations\n      const rankedMatch = rankTableContent.match(/<td[^>]*>\\s*Ranked Locations[\\s\\S]*?<\\/td>\\s*<td[^>]*>([^<]+)<\\/td>/i);\n      if (rankedMatch) {\n        results['Ranked Locations'] = rankedMatch[1].trim();\n      }\n      \n      // Extract average rank\n      const avgRankMatch = rankTableContent.match(/<td[^>]*>\\s*Average rank[\\s\\S]*?<\\/td>\\s*<td[^>]*>([^<]+)<\\/td>/i);\n      if (avgRankMatch) {\n        results['Average rank'] = avgRankMatch[1].trim();\n      }\n      \n      // Extract best rank\n      const bestRankMatch = rankTableContent.match(/<td[^>]*>\\s*Best rank[\\s\\S]*?<\\/td>\\s*<td[^>]*>([^<]+)<\\/td>/i);\n      if (bestRankMatch) {\n        results['Best rank'] = bestRankMatch[1].trim();\n      }\n    }\n    \n  } catch (error) {\n    console.log('HTML parsing error:', error.message);\n    results.error = error.message;\n  }\n  \n  return results;\n}\n\nconst scanInfo = parseHTML(html);\n\nreturn {\n  scan_information: scanInfo,\n  html_length: html.length,\n  parsing_method: 'regex_enhanced'\n};"
+      },
+      "typeVersion": 2
+    },
+    {
+      "id": "html-parser-002",
+      "name": "3. HTML Parser - Rakipler",
+      "type": "n8n-nodes-base.code", 
+      "position": [900, 200],
+      "parameters": {
+        "mode": "runOnceForEachItem",
+        "jsCode": "// Parse competitors from HTML using same logic as Python scraper\nconst html = $input.item.json.html;\nif (!html) {\n  return { competitors: [], error: 'No HTML content' };\n}\n\nfunction parseCompetitors(htmlString) {\n  const competitors = [];\n  \n  try {\n    // Look for competitors table with id tbl_comp_rank\n    const compTableMatch = htmlString.match(/<table[^>]*id=[\"']?tbl_comp_rank[\"']?[^>]*>([\\s\\S]*?)<\\/table>/i);\n    \n    if (compTableMatch) {\n      const tableContent = compTableMatch[1];\n      \n      // Find tbody content\n      const tbodyMatch = tableContent.match(/<tbody[^>]*>([\\s\\S]*?)<\\/tbody>/i);\n      const rowsContent = tbodyMatch ? tbodyMatch[1] : tableContent;\n      \n      // Split by table rows\n      const rowMatches = rowsContent.match(/<tr[^>]*>([\\s\\S]*?)<\\/tr>/gi);\n      \n      if (rowMatches) {\n        for (const rowMatch of rowMatches) {\n          const rowContent = rowMatch.replace(/<\\/?tr[^>]*>/gi, '');\n          const competitor = {};\n          \n          // Extract name (look for a.ext link)\n          const nameMatch = rowContent.match(/<a[^>]*class=[\"']?[^\"']*ext[^\"']*[\"']?[^>]*>([^<]+)<\\/a>/i);\n          if (nameMatch) {\n            competitor['İsim'] = nameMatch[1].trim();\n          }\n          \n          // Extract rating from title attribute\n          const ratingMatch = rowContent.match(/title=[\"']?([0-9]+(?:[\\.,][0-9]+)?)\\s*out\\s*of\\s*5[\"']?/i);\n          if (ratingMatch) {\n            competitor['Puan'] = ratingMatch[1].replace(',', '.');\n          } else {\n            competitor['Puan'] = 'N/A';\n          }\n          \n          // Extract address (look for fa-map-marker icon parent)\n          const addressMatch = rowContent.match(/<i[^>]*class=[\"']?[^\"']*fa-map-marker[^\"']*[\"']?[^>]*><\\/i>[\\s\\S]*?<span[^>]*>([^<]+)<\\/span>/i);\n          if (addressMatch) {\n            competitor['Adres'] = addressMatch[1].trim();\n          }\n          \n          // Extract website (look for fa-globe icon)\n          const websiteMatch = rowContent.match(/<i[^>]*class=[\"']?[^\"']*fa-globe[^\"']*[\"']?[^>]*><\\/i>[\\s\\S]*?<a[^>]*href=[\"']?([^\"'\\s>]+)[\"']?/i);\n          if (websiteMatch) {\n            competitor['Web Sitesi'] = websiteMatch[1];\n          } else {\n            competitor['Web Sitesi'] = 'N/A';\n          }\n          \n          // Extract photo count (look for fa-photo icon)\n          const photoMatch = rowContent.match(/<i[^>]*class=[\"']?[^\"']*fa-photo[^\"']*[\"']?[^>]*><\\/i>[\\s\\S]*?<span[^>]*>([^<]+)<\\/span>/i);\n          if (photoMatch) {\n            competitor['Fotoğraf Sayısı'] = photoMatch[1].trim();\n          }\n          \n          // Extract claimed status\n          const claimedMatch = rowContent.match(/<span[^>]*>\\s*((?:Un\\s*)?Claimed)\\s*<\\/span>/i);\n          if (claimedMatch) {\n            competitor['Sahiplenme Durumu'] = claimedMatch[1].trim();\n          }\n          \n          // Extract location count (text-center h5)\n          const locationMatch = rowContent.match(/<td[^>]*class=[\"']?[^\"']*text-center[^\"']*[\"']?[^>]*>\\s*<h5[^>]*>([^<]+)<\\/h5>/i);\n          if (locationMatch) {\n            competitor['Bulunduğu Konum Sayısı'] = locationMatch[1].trim();\n          }\n          \n          // Extract average ranking (dotlg2 class)\n          const avgRankMatch = rowContent.match(/<span[^>]*class=[\"']?[^\"']*dotlg2[^\"']*[\"']?[^>]*>([^<]+)<\\/span>/i);\n          if (avgRankMatch) {\n            competitor['Ortalama Sıralama'] = avgRankMatch[1].trim();\n          }\n          \n          // Only add if we found at least a name\n          if (competitor['İsim']) {\n            // Set defaults for missing values\n            competitor['Yorum Sayısı'] = '0';\n            competitor['Kategoriler'] = 'N/A';\n            \n            competitors.push(competitor);\n          }\n        }\n      }\n    }\n    \n  } catch (error) {\n    console.log('Competitors parsing error:', error.message);\n  }\n  \n  return competitors;\n}\n\nconst competitorData = parseCompetitors(html);\n\nreturn {\n  competitors: competitorData,\n  competitor_count: competitorData.length,\n  parsing_method: 'regex_table_enhanced'\n};"
+      },
+      "typeVersion": 2
+    },
+    {
+      "id": "html-parser-003",
+      "name": "4. HTML Parser - Sponsorlu Listeler",
+      "type": "n8n-nodes-base.code",
+      "position": [900, 300],
+      "parameters": {
+        "mode": "runOnceForEachItem",
+        "jsCode": "// Parse sponsored listings from HTML using same logic as Python scraper\nconst html = $input.item.json.html;\nif (!html) {\n  return { sponsored_listings: [], error: 'No HTML content' };\n}\n\nfunction parseSponsoredListings(htmlString) {\n  const listings = [];\n  \n  try {\n    // Look for sponsored ads table with id tbl_ads_rank\n    const adsTableMatch = htmlString.match(/<table[^>]*id=[\"']?tbl_ads_rank[\"']?[^>]*>([\\s\\S]*?)<\\/table>/i);\n    \n    if (adsTableMatch) {\n      const tableContent = adsTableMatch[1];\n      \n      // Find tbody content\n      const tbodyMatch = tableContent.match(/<tbody[^>]*>([\\s\\S]*?)<\\/tbody>/i);\n      const rowsContent = tbodyMatch ? tbodyMatch[1] : tableContent;\n      \n      // Split by table rows\n      const rowMatches = rowsContent.match(/<tr[^>]*>([\\s\\S]*?)<\\/tr>/gi);\n      \n      if (rowMatches) {\n        for (const rowMatch of rowMatches) {\n          const rowContent = rowMatch.replace(/<\\/?tr[^>]*>/gi, '');\n          const listing = {};\n          \n          // Extract name (look for a.ext link)\n          const nameMatch = rowContent.match(/<a[^>]*class=[\"']?[^\"']*ext[^\"']*[\"']?[^>]*>([^<]+)<\\/a>/i);\n          if (nameMatch) {\n            listing['İsim'] = nameMatch[1].trim();\n          }\n          \n          // Extract rating from title attribute\n          const ratingMatch = rowContent.match(/title=[\"']?([0-9]+(?:[\\.,][0-9]+)?)\\s*out\\s*of\\s*5[\"']?/i);\n          if (ratingMatch) {\n            listing['Puan'] = ratingMatch[1].replace(',', '.');\n          } else {\n            listing['Puan'] = 'N/A';\n          }\n          \n          // Extract view count (usually in the last td)\n          const tds = rowContent.match(/<td[^>]*>([\\s\\S]*?)<\\/td>/gi);\n          if (tds && tds.length > 0) {\n            const lastTd = tds[tds.length - 1];\n            const viewMatch = lastTd.match(/>([^<]*\\d+[^<]*)</i);\n            if (viewMatch) {\n              listing['Görülme Sayısı'] = viewMatch[1].trim();\n            }\n          }\n          \n          // Only add if we found at least a name\n          if (listing['İsim']) {\n            // Set defaults for missing values\n            listing['Yorum Sayısı'] = '0';\n            listing['Görülme Sayısı'] = listing['Görülme Sayısı'] || 'N/A';\n            \n            listings.push(listing);\n          }\n        }\n      }\n    }\n    \n  } catch (error) {\n    console.log('Sponsored listings parsing error:', error.message);\n  }\n  \n  return listings;\n}\n\nconst sponsoredData = parseSponsoredListings(html);\n\nreturn {\n  sponsored_listings: sponsoredData,\n  sponsored_count: sponsoredData.length,\n  parsing_method: 'regex_ads_table'\n};"
+      },
+      "typeVersion": 2
+    },
+    {
+      "id": "html-parser-004",
+      "name": "5. HTML Parser - Detaylı Sonuçlar",
+      "type": "n8n-nodes-base.code",
+      "position": [900, 400],
+      "parameters": {
+        "mode": "runOnceForEachItem",
+        "jsCode": "// Parse detailed results from HTML using same logic as Python scraper\nconst html = $input.item.json.html;\nif (!html) {\n  return { detailed_results: [], error: 'No HTML content' };\n}\n\nfunction parseDetailedResults(htmlString) {\n  const results = [];\n  \n  try {\n    // Look for detailed results table with id tbl_search_rank\n    const detailTableMatch = htmlString.match(/<table[^>]*id=[\"']?tbl_search_rank[\"']?[^>]*>([\\s\\S]*?)<\\/table>/i);\n    \n    if (detailTableMatch) {\n      const tableContent = detailTableMatch[1];\n      \n      // Find tbody content\n      const tbodyMatch = tableContent.match(/<tbody[^>]*>([\\s\\S]*?)<\\/tbody>/i);\n      const rowsContent = tbodyMatch ? tbodyMatch[1] : tableContent;\n      \n      // Split by table rows\n      const rowMatches = rowsContent.match(/<tr[^>]*>([\\s\\S]*?)<\\/tr>/gi);\n      \n      if (rowMatches) {\n        for (const rowMatch of rowMatches) {\n          const rowContent = rowMatch.replace(/<\\/?tr[^>]*>/gi, '');\n          const result = {};\n          \n          // Extract name (look for a.ext link)\n          const nameMatch = rowContent.match(/<a[^>]*class=[\"']?[^\"']*ext[^\"']*[\"']?[^>]*>([^<]+)<\\/a>/i);\n          if (nameMatch) {\n            result['İsim'] = nameMatch[1].trim();\n          }\n          \n          // Extract rating from title attribute\n          const ratingMatch = rowContent.match(/title=[\"']?([0-9]+(?:[\\.,][0-9]+)?)\\s*out\\s*of\\s*5[\"']?/i);\n          if (ratingMatch) {\n            result['Puan'] = ratingMatch[1].replace(',', '.');\n          } else {\n            result['Puan'] = 'N/A';\n          }\n          \n          // Extract address (look for fa-map-marker icon parent)\n          const addressMatch = rowContent.match(/<i[^>]*class=[\"']?[^\"']*fa-map-marker[^\"']*[\"']?[^>]*><\\/i>[\\s\\S]*?<span[^>]*>([^<]+)<\\/span>/i);\n          if (addressMatch) {\n            result['Adres'] = addressMatch[1].trim();\n          }\n          \n          // Extract position/rank (usually in first or second cell)\n          const tds = rowContent.match(/<td[^>]*>([\\s\\S]*?)<\\/td>/gi);\n          if (tds && tds.length > 0) {\n            const firstTd = tds[0];\n            const rankMatch = firstTd.match(/>\\s*(\\d+)\\s*</i);\n            if (rankMatch) {\n              result['Sıralama'] = rankMatch[1];\n            }\n          }\n          \n          // Extract website (look for fa-globe icon)\n          const websiteMatch = rowContent.match(/<i[^>]*class=[\"']?[^\"']*fa-globe[^\"']*[\"']?[^>]*><\\/i>[\\s\\S]*?<a[^>]*href=[\"']?([^\"'\\s>]+)[\"']?/i);\n          if (websiteMatch) {\n            result['Web Sitesi'] = websiteMatch[1];\n          } else {\n            result['Web Sitesi'] = 'N/A';\n          }\n          \n          // Only add if we found at least a name\n          if (result['İsim']) {\n            // Set defaults for missing values\n            result['Yorum Sayısı'] = '0';\n            result['Sıralama'] = result['Sıralama'] || 'N/A';\n            \n            results.push(result);\n          }\n        }\n      }\n    }\n    \n  } catch (error) {\n    console.log('Detailed results parsing error:', error.message);\n  }\n  \n  return results;\n}\n\nconst detailedData = parseDetailedResults(html);\n\nreturn {\n  detailed_results: detailedData,\n  results_count: detailedData.length,\n  parsing_method: 'regex_search_table'\n};"
+      },
+      "typeVersion": 2
+    },
+    {
+      "id": "js-extractor-001",
+      "name": "6. JavaScript Veri Çıkarıcı",
+      "type": "n8n-nodes-base.code",
+      "position": [1100, 200],
+      "parameters": {
+        "mode": "runOnceForAllItems",
+        "jsCode": "// JavaScript veri çıkarma (Python js_extractor.py klon)\nconst htmlContent = $input.first().json.data;\n\n// JavaScript verilerini çıkar\nfunction extractJavaScriptData(html) {\n  const jsData = {};\n  \n  try {\n    // Script etiketlerini bul\n    const scriptMatches = html.match(/<script[^>]*>([\\s\\S]*?)<\\/script>/gi) || [];\n    \n    scriptMatches.forEach((script, index) => {\n      const scriptContent = script.replace(/<\\/?script[^>]*>/gi, '');\n      \n      // JSON verilerini bul\n      const jsonMatches = scriptContent.match(/(?:var|let|const)\\s+\\w+\\s*=\\s*(\\{[\\s\\S]*?\\});?/g) || [];\n      jsonMatches.forEach((match, jsonIndex) => {\n        try {\n          const jsonStr = match.replace(/(?:var|let|const)\\s+\\w+\\s*=\\s*/, '').replace(/;$/, '');\n          const parsed = JSON.parse(jsonStr);\n          jsData[`json_data_${index}_${jsonIndex}`] = parsed;\n        } catch (e) {\n          // JSON parse hatası, devam et\n        }\n      });\n      \n      // Map/location verilerini bul\n      if (scriptContent.includes('lat') && scriptContent.includes('lng')) {\n        const latMatch = scriptContent.match(/lat[\"']?\\s*:\\s*([\\d.-]+)/);\n        const lngMatch = scriptContent.match(/lng[\"']?\\s*:\\s*([\\d.-]+)/);\n        if (latMatch && lngMatch) {\n          jsData.map_coordinates = {\n            lat: parseFloat(latMatch[1]),\n            lng: parseFloat(lngMatch[1])\n          };\n        }\n      }\n      \n      // API endpoint'leri bul\n      const apiMatches = scriptContent.match(/[\"']\\/api\\/[^\"']+[\"']/g) || [];\n      if (apiMatches.length > 0) {\n        jsData.api_endpoints = apiMatches.map(match => match.replace(/[\"']/g, ''));\n      }\n    });\n    \n    // Window objelerini bul\n    const windowMatches = html.match(/window\\.[\\w.]+\\s*=\\s*[^;]+;/g) || [];\n    windowMatches.forEach((match, index) => {\n      jsData[`window_data_${index}`] = match;\n    });\n    \n  } catch (error) {\n    jsData.extraction_error = error.message;\n  }\n  \n  return jsData;\n}\n\nconst extractedJsData = extractJavaScriptData(htmlContent);\n\nreturn [{\n  json: {\n    javascript_verileri: extractedJsData,\n    extraction_timestamp: new Date().toISOString()\n  }\n}];"
+      },
+      "typeVersion": 2
+    },
+    {
+      "id": "api-client-001",
+      "name": "7. API Veri Çekici",
+      "type": "n8n-nodes-base.code",
+      "position": [1100, 350],
+      "parameters": {
+        "mode": "runOnceForAllItems",
+        "jsCode": "// API client (Python api_client.py klon)\nconst targetUrl = $('URL ve Ayar Hazırlama').first().json.target_url;\nconst jsData = $('JavaScript Veri Çıkarıcı').first().json.javascript_verileri;\n\n// Base URL'i çıkar\nconst urlObj = new URL(targetUrl);\nconst baseUrl = `${urlObj.protocol}//${urlObj.host}`;\n\n// API endpoint'leri belirle\nconst apiEndpoints = [];\n\n// JavaScript'ten çıkarılan API endpoint'leri ekle\nif (jsData.api_endpoints) {\n  apiEndpoints.push(...jsData.api_endpoints.map(ep => baseUrl + ep));\n}\n\n// Varsayılan API endpoint'leri ekle\nconst defaultEndpoints = [\n  '/api/scan-data',\n  '/api/results',\n  '/api/competitors',\n  '/api/map-data'\n];\n\ndefaultEndpoints.forEach(ep => {\n  apiEndpoints.push(baseUrl + ep);\n});\n\n// Scan ID'yi URL'den çıkar\nconst scanIdMatch = targetUrl.match(/\\/scan\\/([a-f0-9-]+)/);\nconst scanId = scanIdMatch ? scanIdMatch[1] : null;\n\nif (scanId) {\n  apiEndpoints.push(`${baseUrl}/api/scan/${scanId}/details`);\n  apiEndpoints.push(`${baseUrl}/api/scan/${scanId}/competitors`);\n  apiEndpoints.push(`${baseUrl}/api/scan/${scanId}/map`);\n}\n\nreturn [{\n  json: {\n    api_endpoints_to_try: [...new Set(apiEndpoints)], // Duplikatleri kaldır\n    base_url: baseUrl,\n    scan_id: scanId,\n    extraction_method: 'n8n_api_client'\n  }\n}];"
+      },
+      "typeVersion": 2
+    },
+    {
+      "id": "api-requests-parallel-001",
+      "name": "8. Paralel API İstekleri",
+      "type": "n8n-nodes-base.splitOut",
+      "position": [1300, 350],
+      "parameters": {
+        "fieldName": "api_endpoints_to_try",
+        "options": {}
+      },
+      "typeVersion": 1
+    },
+    {
+      "id": "api-request-executor-001",
+      "name": "API İstek Yürütücü",
+      "type": "n8n-nodes-base.httpRequest",
+      "position": [1500, 350],
+      "parameters": {
+        "url": "={{ $json }}",
+        "method": "GET",
+        "options": {
+          "timeout": 10000,
+          "allowUnauthorizedCerts": true,
+          "followRedirect": true
+        },
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "User-Agent",
+              "value": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36"
+            },
+            {
+              "name": "Accept",
+              "value": "application/json, text/plain, */*"
+            },
+            {
+              "name": "Referer",
+              "value": "={{ $('URL ve Ayar Hazırlama').item.json.target_url }}"
+            }
+          ]
+        }
+      },
+      "typeVersion": 4.2,
+      "continueOnFail": true
+    },
+    {
+      "id": "data-aggregator-001",
+      "name": "9. Veri Birleştirici",
+      "type": "n8n-nodes-base.merge",
+      "position": [1700, 300],
+      "parameters": {
+        "mode": "multiplex",
+        "options": {}
+      },
+      "typeVersion": 2.1
+    },
+    {
+      "id": "final-data-formatter-001",
+      "name": "10. Final Veri Formatçı",
+      "type": "n8n-nodes-base.set",
+      "position": [1900, 300],
+      "parameters": {
+        "fields": {
+          "values": [
+            {
+              "name": "ozet_bilgiler",
+              "type": "object",
+              "objectValue": "={{ {\n  'business_name': $('HTML Parser - Özet Bilgiler').item.json.business_name || 'N/A',\n  'location': $('HTML Parser - Özet Bilgiler').item.json.location || 'N/A',\n  'search_term': $('HTML Parser - Özet Bilgiler').item.json.search_term || 'N/A',\n  'scan_info_raw': $('HTML Parser - Özet Bilgiler').item.json.scan_info_table || ''\n} }}"
+            },
+            {
+              "name": "rakipler",
+              "type": "array",
+              "arrayValue": "={{ $('HTML Parser - Rakipler').item.json.competitors?.map((comp, idx) => ({\n  'name': $('HTML Parser - Rakipler').item.json.competitor_names?.[idx] || 'N/A',\n  'rating': $('HTML Parser - Rakipler').item.json.competitor_ratings?.[idx] || 'N/A',\n  'address': $('HTML Parser - Rakipler').item.json.competitor_addresses?.[idx] || 'N/A',\n  'raw_html': comp\n})) || [] }}"
+            },
+            {
+              "name": "sponsorlu_listeler",
+              "type": "array",
+              "arrayValue": "={{ $('HTML Parser - Sponsorlu Listeler').item.json.sponsored_listings?.map((listing, idx) => ({\n  'title': $('HTML Parser - Sponsorlu Listeler').item.json.sponsored_titles?.[idx] || 'N/A',\n  'url': $('HTML Parser - Sponsorlu Listeler').item.json.sponsored_urls?.[idx] || 'N/A',\n  'raw_html': listing\n})) || [] }}"
+            },
+            {
+              "name": "detayli_sonuclar",
+              "type": "array", 
+              "arrayValue": "={{ $('HTML Parser - Detaylı Sonuçlar').item.json.detailed_results?.map((result, idx) => ({\n  'position': $('HTML Parser - Detaylı Sonuçlar').item.json.result_positions?.[idx] || 'N/A',\n  'url': $('HTML Parser - Detaylı Sonuçlar').item.json.result_urls?.[idx] || 'N/A',\n  'raw_html': result\n})) || [] }}"
+            },
+            {
+              "name": "harita_verileri",
+              "type": "object",
+              "objectValue": "={{ $('JavaScript Veri Çıkarıcı').item.json.javascript_verileri.map_coordinates || {} }}"
+            },
+            {
+              "name": "api_verileri",
+              "type": "array",
+              "arrayValue": "={{ $json.data || [] }}"
+            },
+            {
+              "name": "javascript_verileri",
+              "type": "object",
+              "objectValue": "={{ $('JavaScript Veri Çıkarıcı').item.json.javascript_verileri || {} }}"
+            },
+            {
+              "name": "metadata",
+              "type": "object",
+              "objectValue": "={{ {\n  ...$('URL ve Ayar Hazırlama').item.json.scraper_metadata,\n  'url': $('URL ve Ayar Hazırlama').item.json.target_url,\n  'selenium_used': $('URL ve Ayar Hazırlama').item.json.use_selenium,\n  'processing_completed_at': new Date().toISOString()\n} }}"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "typeVersion": 3.2
+    },
+    {
+      "id": "json-exporter-001",
+      "name": "11A. JSON Export",
+      "type": "n8n-nodes-base.writeBinaryFile",
+      "position": [2100, 150],
+      "parameters": {
+        "fileName": "={{ $('URL ve Ayar Hazırlama').item.json.base_filename }}_{{ $('URL ve Ayar Hazırlama').item.json.timestamp }}.json",
+        "dataPropertyName": "data",
+        "options": {}
+      },
+      "typeVersion": 1
+    },
+    {
+      "id": "json-formatter-001",
+      "name": "JSON Formatter",
+      "type": "n8n-nodes-base.set",
+      "position": [2000, 150],
+      "parameters": {
+        "fields": {
+          "values": [
+            {
+              "name": "data",
+              "type": "string",
+              "stringValue": "={{ JSON.stringify($json, null, 2) }}"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "typeVersion": 3.2
+    },
+    {
+      "id": "excel-exporter-001",
+      "name": "11B. Excel Export",
+      "type": "n8n-nodes-base.spreadsheetFile",
+      "position": [2100, 250],
+      "parameters": {
+        "operation": "write",
+        "fileFormat": "xlsx",
+        "options": {
+          "fileName": "={{ $('URL ve Ayar Hazırlama').item.json.base_filename }}_{{ $('URL ve Ayar Hazırlama').item.json.timestamp }}.xlsx"
+        }
+      },
+      "typeVersion": 2
+    },
+    {
+      "id": "csv-exporter-ozet-001",
+      "name": "11C. CSV Export - Özet",
+      "type": "n8n-nodes-base.spreadsheetFile",
+      "position": [2100, 350],
+      "parameters": {
+        "operation": "write",
+        "fileFormat": "csv",
+        "options": {
+          "fileName": "={{ $('URL ve Ayar Hazırlama').item.json.base_filename }}_{{ $('URL ve Ayar Hazırlama').item.json.timestamp }}_ozet_bilgiler.csv",
+          "includeHeaders": true
+        }
+      },
+      "typeVersion": 2
+    },
+    {
+      "id": "csv-exporter-rakipler-001",
+      "name": "11D. CSV Export - Rakipler",
+      "type": "n8n-nodes-base.splitOut",
+      "position": [2050, 450],
+      "parameters": {
+        "fieldName": "rakipler",
+        "options": {}
+      },
+      "typeVersion": 1
+    },
+    {
+      "id": "csv-exporter-rakipler-002",
+      "name": "11D2. CSV Write - Rakipler",
+      "type": "n8n-nodes-base.spreadsheetFile",
+      "position": [2200, 450],
+      "parameters": {
+        "operation": "write",
+        "fileFormat": "csv",
+        "options": {
+          "fileName": "={{ $('URL ve Ayar Hazırlama').item.json.base_filename }}_{{ $('URL ve Ayar Hazırlama').item.json.timestamp }}_rakipler.csv",
+          "includeHeaders": true
+        }
+      },
+      "typeVersion": 2
+    },
+    {
+      "id": "summary-generator-001",
+      "name": "12. Özet Rapor Oluşturucu",
+      "type": "n8n-nodes-base.set",
+      "position": [2300, 300],
+      "parameters": {
+        "fields": {
+          "values": [
+            {
+              "name": "scraping_summary",
+              "type": "object",
+              "objectValue": "={{ {\n  'total_competitors': $json.rakipler?.length || 0,\n  'total_sponsored': $json.sponsorlu_listeler?.length || 0,\n  'total_detailed_results': $json.detayli_sonuclar?.length || 0,\n  'has_map_data': Object.keys($json.harita_verileri || {}).length > 0,\n  'api_responses': $json.api_verileri?.length || 0,\n  'js_data_fields': Object.keys($json.javascript_verileri || {}).length,\n  'processing_time': new Date().toISOString(),\n  'success_status': 'completed'\n} }}"
+            },
+            {
+              "name": "export_files",
+              "type": "array",
+              "arrayValue": "={{ [\n  $('URL ve Ayar Hazırlama').item.json.base_filename + '_' + $('URL ve Ayar Hazırlama').item.json.timestamp + '.json',\n  $('URL ve Ayar Hazırlama').item.json.base_filename + '_' + $('URL ve Ayar Hazırlama').item.json.timestamp + '.xlsx',\n  $('URL ve Ayar Hazırlama').item.json.base_filename + '_' + $('URL ve Ayar Hazırlama').item.json.timestamp + '_ozet_bilgiler.csv',\n  $('URL ve Ayar Hazırlama').item.json.base_filename + '_' + $('URL ve Ayar Hazırlama').item.json.timestamp + '_rakipler.csv'\n] }}"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "typeVersion": 3.2
+    },
+    {
+      "id": "selenium-cleanup-001",
+      "name": "13A. Selenium Session Kapat",
+      "type": "n8n-nodes-base.httpRequest",
+      "position": [2400, 300],
+      "parameters": {
+        "url": "http://selenium-chrome:4444/wd/hub/session/{{ $('0B. Session ID Çıkar').item.json.session_id }}",
+        "method": "DELETE",
+        "options": {
+          "response": {
+            "response": {
+              "responseFormat": "text"
+            }
+          }
+        }
+      },
+      "typeVersion": 4.2
+    },
+    {
+      "id": "notification-sender-001",
+      "name": "13B. Bildirim Gönder",
+      "type": "n8n-nodes-base.telegram",
+      "position": [2500, 300],
+      "parameters": {
+        "operation": "sendMessage", 
+        "text": "🕷️ **Local Rank Scraper Tamamlandı!**\n\n🌐 **URL:** {{ $('URL ve Ayar Hazırlama').item.json.target_url }}\n🏢 **İşletme:** {{ $('Final Veri Formatçı').item.json.ozet_bilgiler.business_name }}\n📍 **Lokasyon:** {{ $('Final Veri Formatçı').item.json.ozet_bilgiler.location }}\n🔍 **Arama Terimi:** {{ $('Final Veri Formatçı').item.json.ozet_bilgiler.search_term }}\n\n📊 **Toplanan Veriler:**\n• Rakipler: {{ $json.scraping_summary.total_competitors }}\n• Sponsorlu Listeler: {{ $json.scraping_summary.total_sponsored }}\n• Detaylı Sonuçlar: {{ $json.scraping_summary.total_detailed_results }}\n• API Yanıtları: {{ $json.scraping_summary.api_responses }}\n• JS Veri Alanları: {{ $json.scraping_summary.js_data_fields }}\n• Harita Verisi: {{ $json.scraping_summary.has_map_data ? 'Var ✅' : 'Yok ❌' }}\n\n📁 **Oluşturulan Dosyalar:**\n{{ $json.export_files.map(f => '• ' + f).join('\\n') }}\n\n⏰ **İşlem Süresi:** {{ new Date($('Final Veri Formatçı').item.json.metadata.scraped_at).toLocaleString('tr-TR') }} - {{ new Date().toLocaleString('tr-TR') }}\n\n🎉 **Python main_scraper.py klonu başarıyla tamamlandı!**\n\n💻 **Selenium Browser:** ✅ Kapatıldı",
+        "chatId": "YOUR_TELEGRAM_CHAT_ID",
+        "additionalFields": {
+          "parse_mode": "Markdown"
+        }
+      },
+      "credentials": {
+        "telegramApi": {
+          "id": "telegram-credentials",
+          "name": "Telegram Bot API"
+        }
+      },
+      "typeVersion": 1.1
+    }
+  ],
+  "connections": {
+    "Manuel Tetikleme": {
+      "main": [
+        [
+          {
+            "node": "URL ve Ayar Hazırlama",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Webhook Tetikleme": {
+      "main": [
+        [
+          {
+            "node": "URL ve Ayar Hazırlama",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "URL ve Ayar Hazırlama": {
+      "main": [
+        [
+          {
+            "node": "Rate Limiting",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Rate Limiting": {
+      "main": [
+        [
+          {
+            "node": "0. Selenium Session Başlat",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "0. Selenium Session Başlat": {
+      "main": [
+        [
+          {
+            "node": "0B. Session ID Çıkar",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "0B. Session ID Çıkar": {
+      "main": [
+        [
+          {
+            "node": "1A. Selenium ile Sayfaya Git",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "1A. Selenium ile Sayfaya Git": {
+      "main": [
+        [
+          {
+            "node": "1B. Sayfa Yüklenmesi Bekle",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "1B. Sayfa Yüklenmesi Bekle": {
+      "main": [
+        [
+          {
+            "node": "1C. Dinamik İçerik Bekle",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "1C. Dinamik İçerik Bekle": {
+      "main": [
+        [
+          {
+            "node": "1D. HTML İçeriğini Al",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "1D. HTML İçeriğini Al": {
+      "main": [
+        [
+          {
+            "node": "1E. HTML Formatla",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "1E. HTML Formatla": {
+      "main": [
+        [
+          {
+            "node": "2. HTML Parser - Özet Bilgiler",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "3. HTML Parser - Rakipler",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "4. HTML Parser - Sponsorlu Listeler",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "5. HTML Parser - Detaylı Sonuçlar",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "6. JavaScript Veri Çıkarıcı",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "0. Selenium Session Başlat": {
+      "main": [
+        [
+          {
+            "node": "0B. Session ID Çıkar",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "0B. Session ID Çıkar": {
+      "main": [
+        [
+          {
+            "node": "1A. Selenium ile Sayfaya Git",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "1A. Web Client - Temel": {
+      "main": [
+        [
+          {
+            "node": "1B. Selenium ile Web Scraping",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "1B. Selenium ile Web Scraping": {
+      "main": [
+        [
+          {
+            "node": "2. HTML Parser - Özet Bilgiler",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "3. HTML Parser - Rakipler",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "4. HTML Parser - Sponsorlu Listeler",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "5. HTML Parser - Detaylı Sonuçlar",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "6. JavaScript Veri Çıkarıcı",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "2. HTML Parser - Özet Bilgiler": {
+      "main": [
+        [
+          {
+            "node": "9. Veri Birleştirici",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "3. HTML Parser - Rakipler": {
+      "main": [
+        [
+          {
+            "node": "9. Veri Birleştirici",
+            "type": "main",
+            "index": 1
+          }
+        ]
+      ]
+    },
+    "4. HTML Parser - Sponsorlu Listeler": {
+      "main": [
+        [
+          {
+            "node": "9. Veri Birleştirici",
+            "type": "main",
+            "index": 2
+          }
+        ]
+      ]
+    },
+    "5. HTML Parser - Detaylı Sonuçlar": {
+      "main": [
+        [
+          {
+            "node": "9. Veri Birleştirici",
+            "type": "main",
+            "index": 3
+          }
+        ]
+      ]
+    },
+    "6. JavaScript Veri Çıkarıcı": {
+      "main": [
+        [
+          {
+            "node": "7. API Veri Çekici",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "9. Veri Birleştirici",
+            "type": "main",
+            "index": 4
+          }
+        ]
+      ]
+    },
+    "7. API Veri Çekici": {
+      "main": [
+        [
+          {
+            "node": "8. Paralel API İstekleri",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "8. Paralel API İstekleri": {
+      "main": [
+        [
+          {
+            "node": "API İstek Yürütücü",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "API İstek Yürütücü": {
+      "main": [
+        [
+          {
+            "node": "9. Veri Birleştirici",
+            "type": "main",
+            "index": 5
+          }
+        ]
+      ]
+    },
+    "9. Veri Birleştirici": {
+      "main": [
+        [
+          {
+            "node": "10. Final Veri Formatçı",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "10. Final Veri Formatçı": {
+      "main": [
+        [
+          {
+            "node": "JSON Formatter",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "11B. Excel Export",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "11C. CSV Export - Özet",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "11D. CSV Export - Rakipler",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "12. Özet Rapor Oluşturucu",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "JSON Formatter": {
+      "main": [
+        [
+          {
+            "node": "11A. JSON Export",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "11D. CSV Export - Rakipler": {
+      "main": [
+        [
+          {
+            "node": "11D2. CSV Write - Rakipler",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "12. Özet Rapor Oluşturucu": {
+      "main": [
+        [
+          {
+            "node": "13A. Selenium Session Kapat",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "13A. Selenium Session Kapat": {
+      "main": [
+        [
+          {
+            "node": "13B. Bildirim Gönder",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  }
+}

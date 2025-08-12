@@ -1,0 +1,441 @@
+{
+  "name": "Akıllı Belge İşleyici - PDF Analiz ve İçerik Çıkarma",
+  "nodes": [
+    {
+      "id": "webhook-pdf-upload-001",
+      "name": "PDF Upload Webhook",
+      "type": "n8n-nodes-base.webhook",
+      "position": [100, 300],
+      "webhookId": "pdf-processor-webhook",
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "upload-pdf",
+        "options": {
+          "binaryPropertyName": "pdf_file"
+        }
+      },
+      "typeVersion": 2
+    },
+    {
+      "id": "google-drive-trigger-001",
+      "name": "Google Drive PDF Trigger",
+      "type": "n8n-nodes-base.googleDriveTrigger",
+      "position": [100, 200],
+      "parameters": {
+        "folderId": {
+          "__rl": true,
+          "value": "YOUR_GOOGLE_DRIVE_FOLDER_ID",
+          "mode": "id"
+        },
+        "event": "fileCreated",
+        "options": {}
+      },
+      "credentials": {
+        "googleDriveOAuth2Api": {
+          "id": "google-drive-credentials",
+          "name": "Google Drive OAuth2"
+        }
+      },
+      "typeVersion": 1
+    },
+    {
+      "id": "document-type-detector-001",
+      "name": "Belge Türü Tespit",
+      "type": "@n8n/n8n-nodes-langchain.chainLlm",
+      "position": [300, 250],
+      "parameters": {
+        "prompt": "Dosya Adı: {{ $json.name || $json.filename }}\nDosya Boyutu: {{ $json.size || 'Bilinmiyor' }}",
+        "messages": {
+          "messageValues": [
+            {
+              "message": "Dosya adına bakarak bu belgenin türünü tahmin et. Aşağıdaki kategorilerden birini seç:\n\n1. 'Fatura' - Fatura, makbuz, fiş\n2. 'Sözleşme' - Anlaşma, kontrat, sözleşme\n3. 'CV' - Özgeçmiş, cv, resume\n4. 'Rapor' - Analiz raporu, proje raporu, değerlendirme\n5. 'Mektup' - Resmi mektup, dilekçe, başvuru\n6. 'Sertifika' - Diploma, sertifika, belge\n7. 'Diğer' - Tanımlanamayan belgeler\n\nSadece kategori ismini döndür, açıklama yapma."
+            }
+          ]
+        }
+      },
+      "typeVersion": 1.3
+    },
+    {
+      "id": "pdf-text-extractor-001",
+      "name": "PDF Metin Çıkar",
+      "type": "n8n-nodes-base.extractFromFile",
+      "position": [500, 250],
+      "parameters": {
+        "operation": "extractFromPdf",
+        "binaryPropertyName": "data",
+        "options": {}
+      },
+      "typeVersion": 1
+    },
+    {
+      "id": "content-analyzer-001",
+      "name": "İçerik Analiz",
+      "type": "@n8n/n8n-nodes-langchain.chainLlm",
+      "position": [700, 200],
+      "parameters": {
+        "prompt": "Belge Türü: {{ $('Belge Türü Tespit').item.json.output }}\n\nBelge İçeriği:\n{{ $json.text }}",
+        "messages": {
+          "messageValues": [
+            {
+              "message": "Bu belgeyi analiz et ve aşağıdaki bilgileri JSON formatında çıkar:\n\n```json\n{\n  \"document_type\": \"belge türü\",\n  \"summary\": \"belgenin kısa özeti (max 200 kelime)\",\n  \"key_information\": {\n    \"date\": \"tarih varsa\",\n    \"amount\": \"tutar varsa\",\n    \"names\": [\"kişi/şirket isimleri\"],\n    \"addresses\": [\"adresler\"],\n    \"phone_numbers\": [\"telefon numaraları\"],\n    \"email_addresses\": [\"email adresleri\"]\n  },\n  \"language\": \"belgenin dili (Türkçe/İngilizce/vb)\",\n  \"confidence_score\": \"analiz güven skoru (0-100)\",\n  \"extracted_entities\": [\"önemli varlıklar/kavramlar\"],\n  \"action_required\": \"gerekli aksiyon varsa\",\n  \"priority\": \"düşük/orta/yüksek\",\n  \"category_tags\": [\"etiketler\"]\n}\n```\n\nSadece JSON döndür, açıklama yapma."
+            }
+          ]
+        }
+      },
+      "typeVersion": 1.3
+    },
+    {
+      "id": "sensitive-data-detector-001",
+      "name": "Hassas Veri Tespiti",
+      "type": "@n8n/n8n-nodes-langchain.chainLlm",
+      "position": [700, 350],
+      "parameters": {
+        "prompt": "Belge İçeriği:\n{{ $('PDF Metin Çıkar').item.json.text }}",
+        "messages": {
+          "messageValues": [
+            {
+              "message": "Bu belgede hassas kişisel veriler var mı kontrol et. Aşağıdaki türleri kontrol et:\n\n1. TC Kimlik No\n2. Kredi kartı numarası\n3. IBAN numarası\n4. Telefon numarası\n5. E-mail adresi\n6. Adres bilgisi\n7. Doğum tarihi\n8. Maaş/gelir bilgisi\n\nJSON formatında sonuç ver:\n```json\n{\n  \"has_sensitive_data\": true/false,\n  \"detected_data_types\": [\"tespit edilen veri türleri\"],\n  \"risk_level\": \"düşük/orta/yüksek\",\n  \"recommendations\": [\"güvenlik önerileri\"],\n  \"compliance_notes\": \"KVKK/GDPR uyumluluk notları\"\n}\n```"
+            }
+          ]
+        }
+      },
+      "typeVersion": 1.3
+    },
+    {
+      "id": "json-parser-content-001",
+      "name": "İçerik JSON Parser",
+      "type": "n8n-nodes-base.set",
+      "position": [900, 200],
+      "parameters": {
+        "fields": {
+          "values": [
+            {
+              "name": "parsed_content",
+              "type": "object",
+              "objectValue": "={{ JSON.parse($json.output) }}"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "typeVersion": 3.2
+    },
+    {
+      "id": "json-parser-sensitive-001",
+      "name": "Hassas Veri JSON Parser",
+      "type": "n8n-nodes-base.set",
+      "position": [900, 350],
+      "parameters": {
+        "fields": {
+          "values": [
+            {
+              "name": "sensitive_analysis",
+              "type": "object",
+              "objectValue": "={{ JSON.parse($json.output) }}"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "typeVersion": 3.2
+    },
+    {
+      "id": "data-merger-001",
+      "name": "Veri Birleştir",
+      "type": "n8n-nodes-base.merge",
+      "position": [1100, 275],
+      "parameters": {
+        "mode": "combine",
+        "options": {},
+        "mergeByFields": {
+          "values": []
+        },
+        "outputDataFrom": "input1"
+      },
+      "typeVersion": 2.1
+    },
+    {
+      "id": "database-save-001",
+      "name": "Supabase'e Kaydet",
+      "type": "n8n-nodes-base.supabase",
+      "position": [1300, 200],
+      "parameters": {
+        "operation": "insert",
+        "table": "processed_documents",
+        "fields": {
+          "values": [
+            {
+              "name": "filename",
+              "stringValue": "={{ $('PDF Upload Webhook').item.json.filename || $('Google Drive PDF Trigger').item.json.name }}"
+            },
+            {
+              "name": "document_type",
+              "stringValue": "={{ $json.parsed_content.document_type }}"
+            },
+            {
+              "name": "summary",
+              "stringValue": "={{ $json.parsed_content.summary }}"
+            },
+            {
+              "name": "key_information",
+              "stringValue": "={{ JSON.stringify($json.parsed_content.key_information) }}"
+            },
+            {
+              "name": "language",
+              "stringValue": "={{ $json.parsed_content.language }}"
+            },
+            {
+              "name": "confidence_score",
+              "numberValue": "={{ parseInt($json.parsed_content.confidence_score) }}"
+            },
+            {
+              "name": "has_sensitive_data",
+              "booleanValue": "={{ $json.sensitive_analysis.has_sensitive_data }}"
+            },
+            {
+              "name": "risk_level",
+              "stringValue": "={{ $json.sensitive_analysis.risk_level }}"
+            },
+            {
+              "name": "priority",
+              "stringValue": "={{ $json.parsed_content.priority }}"
+            },
+            {
+              "name": "processed_at",
+              "stringValue": "={{ new Date().toISOString() }}"
+            },
+            {
+              "name": "extracted_text",
+              "stringValue": "={{ $('PDF Metin Çıkar').item.json.text.substring(0, 5000) }}"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "credentials": {
+        "supabaseApi": {
+          "id": "supabase-credentials",
+          "name": "Supabase API"
+        }
+      },
+      "typeVersion": 1
+    },
+    {
+      "id": "google-sheets-save-001",
+      "name": "Google Sheets'e Kaydet",
+      "type": "n8n-nodes-base.googleSheets",
+      "position": [1300, 350],
+      "parameters": {
+        "operation": "appendOrUpdate",
+        "documentId": {
+          "__rl": true,
+          "value": "YOUR_GOOGLE_SHEET_ID",
+          "mode": "url"
+        },
+        "sheetName": "Processed_Documents",
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "filename": "={{ $('PDF Upload Webhook').item.json.filename || $('Google Drive PDF Trigger').item.json.name }}",
+            "document_type": "={{ $json.parsed_content.document_type }}",
+            "summary": "={{ $json.parsed_content.summary }}",
+            "language": "={{ $json.parsed_content.language }}",
+            "confidence_score": "={{ $json.parsed_content.confidence_score }}",
+            "has_sensitive_data": "={{ $json.sensitive_analysis.has_sensitive_data }}",
+            "risk_level": "={{ $json.sensitive_analysis.risk_level }}",
+            "priority": "={{ $json.parsed_content.priority }}",
+            "processed_at": "={{ new Date().toISOString() }}",
+            "key_persons": "={{ $json.parsed_content.key_information.names ? $json.parsed_content.key_information.names.join(', ') : '' }}",
+            "amount": "={{ $json.parsed_content.key_information.amount || '' }}",
+            "date": "={{ $json.parsed_content.key_information.date || '' }}"
+          }
+        },
+        "options": {}
+      },
+      "credentials": {
+        "googleSheetsOAuth2Api": {
+          "id": "google-sheets-credentials",
+          "name": "Google Sheets OAuth2"
+        }
+      },
+      "typeVersion": 4.4
+    },
+    {
+      "id": "notification-sender-001",
+      "name": "Telegram Bildirim",
+      "type": "n8n-nodes-base.telegram",
+      "position": [1300, 500],
+      "parameters": {
+        "operation": "sendMessage",
+        "text": "📄 *Yeni Belge İşlendi*\n\n🗂️ **Dosya:** {{ $('PDF Upload Webhook').item.json.filename || $('Google Drive PDF Trigger').item.json.name }}\n📋 **Tür:** {{ $json.parsed_content.document_type }}\n🌐 **Dil:** {{ $json.parsed_content.language }}\n📊 **Güven Skoru:** {{ $json.parsed_content.confidence_score }}%\n⚡ **Öncelik:** {{ $json.parsed_content.priority }}\n🔒 **Hassas Veri:** {{ $json.sensitive_analysis.has_sensitive_data ? 'VAR ⚠️' : 'YOK ✅' }}\n🚨 **Risk Seviyesi:** {{ $json.sensitive_analysis.risk_level }}\n\n📝 **Özet:**\n{{ $json.parsed_content.summary }}\n\n⏰ **İşlenme Zamanı:** {{ new Date().toLocaleString('tr-TR') }}",
+        "chatId": "YOUR_TELEGRAM_CHAT_ID",
+        "additionalFields": {
+          "parse_mode": "Markdown"
+        }
+      },
+      "credentials": {
+        "telegramApi": {
+          "id": "telegram-credentials",
+          "name": "Telegram Bot API"
+        }
+      },
+      "typeVersion": 1.1
+    },
+    {
+      "id": "openai-model-main-001",
+      "name": "OpenAI Ana Model",
+      "type": "@n8n/n8n-nodes-langchain.lmChatOpenAi",
+      "position": [600, 500],
+      "parameters": {
+        "model": "gpt-4o",
+        "options": {
+          "temperature": 0.1,
+          "maxTokens": 2000
+        }
+      },
+      "credentials": {
+        "openAiApi": {
+          "id": "openai-credentials",
+          "name": "OpenAI API"
+        }
+      },
+      "typeVersion": 1
+    }
+  ],
+  "connections": {
+    "PDF Upload Webhook": {
+      "main": [
+        [
+          {
+            "node": "Belge Türü Tespit",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "PDF Metin Çıkar",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Google Drive PDF Trigger": {
+      "main": [
+        [
+          {
+            "node": "Belge Türü Tespit",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "PDF Metin Çıkar",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "PDF Metin Çıkar": {
+      "main": [
+        [
+          {
+            "node": "İçerik Analiz",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Hassas Veri Tespiti",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "İçerik Analiz": {
+      "main": [
+        [
+          {
+            "node": "İçerik JSON Parser",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Hassas Veri Tespiti": {
+      "main": [
+        [
+          {
+            "node": "Hassas Veri JSON Parser",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "İçerik JSON Parser": {
+      "main": [
+        [
+          {
+            "node": "Veri Birleştir",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Hassas Veri JSON Parser": {
+      "main": [
+        [
+          {
+            "node": "Veri Birleştir",
+            "type": "main",
+            "index": 1
+          }
+        ]
+      ]
+    },
+    "Veri Birleştir": {
+      "main": [
+        [
+          {
+            "node": "Supabase'e Kaydet",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Google Sheets'e Kaydet",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Telegram Bildirim",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "OpenAI Ana Model": {
+      "ai_languageModel": [
+        [
+          {
+            "node": "Belge Türü Tespit",
+            "type": "ai_languageModel",
+            "index": 0
+          },
+          {
+            "node": "İçerik Analiz",
+            "type": "ai_languageModel",
+            "index": 0
+          },
+          {
+            "node": "Hassas Veri Tespiti",
+            "type": "ai_languageModel",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  }
+}

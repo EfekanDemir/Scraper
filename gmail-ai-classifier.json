@@ -1,0 +1,359 @@
+{
+  "name": "Gmail AI Otomatik E-posta Sınıflandırıcı",
+  "nodes": [
+    {
+      "id": "gmail-trigger-001",
+      "name": "Gmail Tetikleyici",
+      "type": "n8n-nodes-base.gmailTrigger",
+      "position": [100, 300],
+      "parameters": {
+        "simple": false,
+        "filters": {},
+        "options": {},
+        "pollTimes": {
+          "item": [
+            {
+              "mode": "everyMinute"
+            }
+          ]
+        }
+      },
+      "credentials": {
+        "gmailOAuth2": {
+          "id": "gmail-oauth-credentials",
+          "name": "Gmail OAuth2"
+        }
+      },
+      "typeVersion": 1
+    },
+    {
+      "id": "gmail-get-content-001",
+      "name": "E-posta İçeriğini Al",
+      "type": "n8n-nodes-base.gmail",
+      "position": [300, 300],
+      "parameters": {
+        "simple": false,
+        "options": {},
+        "messageId": "={{ $json.id }}",
+        "operation": "get"
+      },
+      "credentials": {
+        "gmailOAuth2": {
+          "id": "gmail-oauth-credentials",
+          "name": "Gmail OAuth2"
+        }
+      },
+      "typeVersion": 2.1
+    },
+    {
+      "id": "openai-classifier-001",
+      "name": "AI Sınıflandırıcı",
+      "type": "@n8n/n8n-nodes-langchain.chainLlm",
+      "position": [500, 300],
+      "parameters": {
+        "prompt": "E-posta Konusu: {{ $json.subject }}\n\nE-posta İçeriği: {{ $json.text }}",
+        "messages": {
+          "messageValues": [
+            {
+              "message": "Bu e-postayı aşağıdaki kategorilerden birine sınıflandır:\n\n1. 'İş' - İş ile ilgili e-postalar, iş teklifleri, profesyonel konular\n2. 'Kişisel' - Kişisel konular, arkadaşlardan gelen mesajlar\n3. 'Promosyon' - Reklam, indirim, tanıtım e-postaları\n4. 'Haber' - Haber bültenleri, güncelleme bildirimleri\n5. 'Spam' - İstenmeyen e-postalar, şüpheli içerik\n6. 'Destek' - Müşteri hizmetleri, teknik destek, yardım talepleri\n\nSadece kategori ismini döndür, başka bir şey yazma. Örnek: İş"
+            }
+          ]
+        }
+      },
+      "typeVersion": 1.3
+    },
+    {
+      "id": "openai-chat-model-002",
+      "name": "OpenAI Chat Model",
+      "type": "@n8n/n8n-nodes-langchain.lmChatOpenAi",
+      "position": [500, 500],
+      "parameters": {
+        "model": "gpt-4o-mini",
+        "options": {
+          "temperature": 0.1
+        }
+      },
+      "credentials": {
+        "openAiApi": {
+          "id": "openai-credentials",
+          "name": "OpenAI API"
+        }
+      },
+      "typeVersion": 1
+    },
+    {
+      "id": "switch-categorizer-001",
+      "name": "Kategori Switch",
+      "type": "n8n-nodes-base.switch",
+      "position": [700, 300],
+      "parameters": {
+        "options": {},
+        "conditions": {
+          "options": {
+            "caseSensitive": false,
+            "leftValue": "",
+            "typeValidation": "strict"
+          },
+          "conditions": [
+            {
+              "id": "is-business",
+              "leftValue": "={{ $json.output }}",
+              "rightValue": "İş",
+              "operator": {
+                "type": "string",
+                "operation": "contains"
+              }
+            },
+            {
+              "id": "is-personal",
+              "leftValue": "={{ $json.output }}",
+              "rightValue": "Kişisel",
+              "operator": {
+                "type": "string",
+                "operation": "contains"
+              }
+            },
+            {
+              "id": "is-promotion",
+              "leftValue": "={{ $json.output }}",
+              "rightValue": "Promosyon",
+              "operator": {
+                "type": "string",
+                "operation": "contains"
+              }
+            },
+            {
+              "id": "is-newsletter",
+              "leftValue": "={{ $json.output }}",
+              "rightValue": "Haber",
+              "operator": {
+                "type": "string",
+                "operation": "contains"
+              }
+            },
+            {
+              "id": "is-spam",
+              "leftValue": "={{ $json.output }}",
+              "rightValue": "Spam",
+              "operator": {
+                "type": "string",
+                "operation": "contains"
+              }
+            },
+            {
+              "id": "is-support",
+              "leftValue": "={{ $json.output }}",
+              "rightValue": "Destek",
+              "operator": {
+                "type": "string",
+                "operation": "contains"
+              }
+            }
+          ]
+        },
+        "fallbackOutput": "extra"
+      },
+      "typeVersion": 3
+    },
+    {
+      "id": "gmail-add-business-label",
+      "name": "İş Etiketi Ekle",
+      "type": "n8n-nodes-base.gmail",
+      "position": [900, 100],
+      "parameters": {
+        "labelIds": ["Label_1"],
+        "messageId": "={{ $('Gmail Tetikleyici').item.json.id }}",
+        "operation": "addLabels"
+      },
+      "credentials": {
+        "gmailOAuth2": {
+          "id": "gmail-oauth-credentials",
+          "name": "Gmail OAuth2"
+        }
+      },
+      "typeVersion": 2.1
+    },
+    {
+      "id": "gmail-add-personal-label",
+      "name": "Kişisel Etiketi Ekle",
+      "type": "n8n-nodes-base.gmail",
+      "position": [900, 200],
+      "parameters": {
+        "labelIds": ["Label_2"],
+        "messageId": "={{ $('Gmail Tetikleyici').item.json.id }}",
+        "operation": "addLabels"
+      },
+      "credentials": {
+        "gmailOAuth2": {
+          "id": "gmail-oauth-credentials",
+          "name": "Gmail OAuth2"
+        }
+      },
+      "typeVersion": 2.1
+    },
+    {
+      "id": "gmail-add-promotion-label",
+      "name": "Promosyon Etiketi Ekle",
+      "type": "n8n-nodes-base.gmail",
+      "position": [900, 300],
+      "parameters": {
+        "labelIds": ["Label_3"],
+        "messageId": "={{ $('Gmail Tetikleyici').item.json.id }}",
+        "operation": "addLabels"
+      },
+      "credentials": {
+        "gmailOAuth2": {
+          "id": "gmail-oauth-credentials",
+          "name": "Gmail OAuth2"
+        }
+      },
+      "typeVersion": 2.1
+    },
+    {
+      "id": "gmail-add-newsletter-label",
+      "name": "Haber Etiketi Ekle",
+      "type": "n8n-nodes-base.gmail",
+      "position": [900, 400],
+      "parameters": {
+        "labelIds": ["Label_4"],
+        "messageId": "={{ $('Gmail Tetikleyici').item.json.id }}",
+        "operation": "addLabels"
+      },
+      "credentials": {
+        "gmailOAuth2": {
+          "id": "gmail-oauth-credentials",
+          "name": "Gmail OAuth2"
+        }
+      },
+      "typeVersion": 2.1
+    },
+    {
+      "id": "gmail-add-spam-label",
+      "name": "Spam Etiketi Ekle",
+      "type": "n8n-nodes-base.gmail",
+      "position": [900, 500],
+      "parameters": {
+        "labelIds": ["Label_5"],
+        "messageId": "={{ $('Gmail Tetikleyici').item.json.id }}",
+        "operation": "addLabels"
+      },
+      "credentials": {
+        "gmailOAuth2": {
+          "id": "gmail-oauth-credentials",
+          "name": "Gmail OAuth2"
+        }
+      },
+      "typeVersion": 2.1
+    },
+    {
+      "id": "gmail-add-support-label",
+      "name": "Destek Etiketi Ekle",
+      "type": "n8n-nodes-base.gmail",
+      "position": [900, 600],
+      "parameters": {
+        "labelIds": ["Label_6"],
+        "messageId": "={{ $('Gmail Tetikleyici').item.json.id }}",
+        "operation": "addLabels"
+      },
+      "credentials": {
+        "gmailOAuth2": {
+          "id": "gmail-oauth-credentials",
+          "name": "Gmail OAuth2"
+        }
+      },
+      "typeVersion": 2.1
+    }
+  ],
+  "connections": {
+    "Gmail Tetikleyici": {
+      "main": [
+        [
+          {
+            "node": "E-posta İçeriğini Al",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "E-posta İçeriğini Al": {
+      "main": [
+        [
+          {
+            "node": "AI Sınıflandırıcı",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "AI Sınıflandırıcı": {
+      "main": [
+        [
+          {
+            "node": "Kategori Switch",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "OpenAI Chat Model": {
+      "ai_languageModel": [
+        [
+          {
+            "node": "AI Sınıflandırıcı",
+            "type": "ai_languageModel",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Kategori Switch": {
+      "main": [
+        [
+          {
+            "node": "İş Etiketi Ekle",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Kişisel Etiketi Ekle",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Promosyon Etiketi Ekle",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Haber Etiketi Ekle",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Spam Etiketi Ekle",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Destek Etiketi Ekle",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  }
+}
