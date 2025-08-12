@@ -117,16 +117,38 @@
       "type": "n8n-nodes-base.wait",
       "position": [820, 200],
       "parameters": {
-        "amount": 5,
+        "amount": 15,
         "unit": "seconds"
       },
       "typeVersion": 1.1
     },
     {
-      "id": "selenium-get-html-001",
-      "name": "1C. HTML İçeriğini Al",
+      "id": "selenium-wait-dynamic-001",
+      "name": "1C. Dinamik İçerik Bekle",
       "type": "n8n-nodes-base.httpRequest",
       "position": [920, 200],
+      "parameters": {
+        "url": "http://selenium-chrome:4444/wd/hub/session/{{ $('0B. Session ID Çıkar').item.json.session_id }}/element",
+        "method": "POST",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "{ \"using\": \"css selector\", \"value\": \".business-info, .competitor-list, .scan-results, [data-testid]\" }",
+        "options": {
+          "timeout": 30000,
+          "response": {
+            "response": {
+              "responseFormat": "json"
+            }
+          }
+        }
+      },
+      "typeVersion": 4.2
+    },
+    {
+      "id": "selenium-get-html-001",
+      "name": "1D. HTML İçeriğini Al",
+      "type": "n8n-nodes-base.httpRequest",
+      "position": [1020, 200],
       "parameters": {
         "url": "http://selenium-chrome:4444/wd/hub/session/{{ $('0B. Session ID Çıkar').item.json.session_id }}/source",
         "method": "GET",
@@ -142,9 +164,9 @@
     },
     {
       "id": "html-formatter-001",
-      "name": "1D. HTML Formatla",
+      "name": "1E. HTML Formatla",
       "type": "n8n-nodes-base.set",
-      "position": [1020, 200],
+      "position": [1120, 200],
       "parameters": {
         "fields": {
           "values": [
@@ -156,7 +178,7 @@
             {
               "name": "method",
               "type": "string",
-              "stringValue": "selenium_browser"
+              "stringValue": "selenium_browser_dynamic"
             },
             {
               "name": "url",
@@ -594,6 +616,103 @@
         [
           {
             "node": "0. Selenium Session Başlat",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "0. Selenium Session Başlat": {
+      "main": [
+        [
+          {
+            "node": "0B. Session ID Çıkar",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "0B. Session ID Çıkar": {
+      "main": [
+        [
+          {
+            "node": "1A. Selenium ile Sayfaya Git",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "1A. Selenium ile Sayfaya Git": {
+      "main": [
+        [
+          {
+            "node": "1B. Sayfa Yüklenmesi Bekle",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "1B. Sayfa Yüklenmesi Bekle": {
+      "main": [
+        [
+          {
+            "node": "1C. Dinamik İçerik Bekle",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "1C. Dinamik İçerik Bekle": {
+      "main": [
+        [
+          {
+            "node": "1D. HTML İçeriğini Al",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "1D. HTML İçeriğini Al": {
+      "main": [
+        [
+          {
+            "node": "1E. HTML Formatla",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "1E. HTML Formatla": {
+      "main": [
+        [
+          {
+            "node": "2. HTML Parser - Özet Bilgiler",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "3. HTML Parser - Rakipler",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "4. HTML Parser - Sponsorlu Listeler",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "5. HTML Parser - Detaylı Sonuçlar",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "6. JavaScript Veri Çıkarıcı",
             "type": "main",
             "index": 0
           }
