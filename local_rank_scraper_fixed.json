@@ -1,0 +1,114 @@
+{
+  "name": "Local Rank Scraper - Fixed Version",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "local-rank-test",
+        "options": {}
+      },
+      "id": "webhook-trigger",
+      "name": "Webhook Trigger",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [100, 400]
+    },
+    {
+      "parameters": {
+        "method": "GET",
+        "url": "={{ $json.scan_url || 'https://httpbin.org/html' }}",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "User-Agent",
+              "value": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36"
+            }
+          ]
+        },
+        "options": {
+          "timeout": 30000,
+          "followRedirect": true
+        }
+      },
+      "id": "fetch-html",
+      "name": "Fetch HTML",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [300, 400]
+    },
+    {
+      "parameters": {
+        "functionCode": "// Simple test function\nconst html = $input.first().json.data || '';\n\nif (!html) {\n  return { error: 'No HTML content' };\n}\n\nreturn {\n  html_length: html.length,\n  has_content: html.length > 100,\n  timestamp: new Date().toISOString()\n};"
+      },
+      "id": "process-data",
+      "name": "Process Data",
+      "type": "n8n-nodes-base.function",
+      "typeVersion": 2,
+      "position": [500, 400]
+    },
+    {
+      "parameters": {
+        "operation": "toFile",
+        "fileFormat": "json",
+        "options": {
+          "fileName": "test_result.json"
+        }
+      },
+      "id": "export-result",
+      "name": "Export Result",
+      "type": "n8n-nodes-base.convertToFile",
+      "typeVersion": 1.1,
+      "position": [700, 400]
+    }
+  ],
+  "connections": {
+    "webhook-trigger": {
+      "main": [
+        [
+          {
+            "node": "fetch-html",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "fetch-html": {
+      "main": [
+        [
+          {
+            "node": "process-data",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "process-data": {
+      "main": [
+        [
+          {
+            "node": "export-result",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "pinData": {},
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "staticData": {},
+  "tags": [
+    {
+      "id": "test",
+      "name": "Test Version"
+    }
+  ],
+  "triggerCount": 1,
+  "updatedAt": "2025-01-08T17:00:00.000Z",
+  "versionId": "1.0"
+}
