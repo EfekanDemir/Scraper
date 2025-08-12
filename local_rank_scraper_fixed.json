@@ -23,12 +23,19 @@
             {
               "name": "User-Agent",
               "value": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36"
+            },
+            {
+              "name": "Accept",
+              "value": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8"
             }
           ]
         },
         "options": {
           "timeout": 30000,
-          "followRedirect": true
+          "followRedirect": true,
+          "response": {
+            "responseFormat": "string"
+          }
         }
       },
       "id": "fetch-html",
@@ -39,7 +46,7 @@
     },
     {
       "parameters": {
-        "functionCode": "// Simple test function\nconst html = $input.first().json.data || '';\n\nif (!html) {\n  return { error: 'No HTML content' };\n}\n\nreturn {\n  html_length: html.length,\n  has_content: html.length > 100,\n  timestamp: new Date().toISOString()\n};"
+        "functionCode": "// N8N Function Node - Test Processing\n// Get HTML data from previous node\nconst htmlData = $input.first().json.data || $input.first().json.body || '';\n\n// Simple validation and processing\nconst result = {\n  original_data_length: htmlData.length,\n  has_content: htmlData.length > 100,\n  contains_html: htmlData.includes('<html>') || htmlData.includes('<!DOCTYPE'),\n  timestamp: new Date().toISOString(),\n  status: htmlData.length > 0 ? 'success' : 'no_data',\n  preview: htmlData.substring(0, 200) + (htmlData.length > 200 ? '...' : '')\n};\n\n// Return the result - N8N expects this format\nreturn result;"
       },
       "id": "process-data",
       "name": "Process Data",
@@ -60,6 +67,16 @@
       "type": "n8n-nodes-base.convertToFile",
       "typeVersion": 1.1,
       "position": [700, 400]
+    },
+    {
+      "parameters": {
+        "message": "Test workflow failed: {{ $json.error || 'Unknown error' }}"
+      },
+      "id": "error-handler",
+      "name": "Error Handler",
+      "type": "n8n-nodes-base.stopAndError",
+      "typeVersion": 1,
+      "position": [500, 550]
     }
   ],
   "connections": {
@@ -83,6 +100,15 @@
             "index": 0
           }
         ]
+      ],
+      "onError": [
+        [
+          {
+            "node": "error-handler",
+            "type": "main",
+            "index": 0
+          }
+        ]
       ]
     },
     "process-data": {
@@ -90,6 +116,15 @@
         [
           {
             "node": "export-result",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ],
+      "onError": [
+        [
+          {
+            "node": "error-handler",
             "type": "main",
             "index": 0
           }
