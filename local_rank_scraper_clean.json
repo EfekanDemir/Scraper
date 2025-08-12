@@ -1,0 +1,430 @@
+{
+  "name": "Local Rank Scraper - Clean Version",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "local-rank-webhook",
+        "options": {}
+      },
+      "id": "webhook-start",
+      "name": "Webhook Trigger",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [100, 300]
+    },
+    {
+      "parameters": {
+        "method": "GET",
+        "url": "={{ $json.scan_url || 'https://www.local-rank.report/scan/default-scan-id' }}",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "User-Agent",
+              "value": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
+            },
+            {
+              "name": "Accept",
+              "value": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8"
+            },
+            {
+              "name": "Accept-Language",
+              "value": "en-US,en;q=0.9"
+            }
+          ]
+        },
+        "options": {
+          "timeout": 30000,
+          "followRedirect": true
+        }
+      },
+      "id": "fetch-html",
+      "name": "Fetch HTML",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [300, 300]
+    },
+    {
+      "parameters": {
+        "functionCode": "// Enhanced JavaScript Data Extraction\\nconst html = $input.first().json.data;\\n\\nif (!html || typeof html !== 'string') {\\n  return { error: 'No HTML content received' };\\n}\\n\\n// Extract pinz data with multiple patterns\\nfunction extractPinzData(htmlContent) {\\n  const patterns = [\\n    /var\\\\s+pinz\\\\s*=\\\\s*(\\\\[[\\\\s\\\\S]*?\\\\]);/i,\\n    /window\\\\.pinz\\\\s*=\\\\s*(\\\\[[\\\\s\\\\S]*?\\\\]);/i,\\n    /pinz\\\\s*:\\\\s*(\\\\[[\\\\s\\\\S]*?\\\\])/i\\n  ];\\n  \\n  for (const pattern of patterns) {\\n    const match = htmlContent.match(pattern);\\n    if (match && match[1]) {\\n      try {\\n        let jsonStr = match[1]\\n          .replace(/\\\\btrue\\\\b/gi, 'true')\\n          .replace(/\\\\bfalse\\\\b/gi, 'false')\\n          .replace(/\\\\bnull\\\\b/gi, 'null');\\n        return JSON.parse(jsonStr);\\n      } catch (e) {\\n        continue;\\n      }\\n    }\\n  }\\n  return [];\\n}\\n\\n// Extract scan GUID\\nfunction extractScanGuid(htmlContent) {\\n  const patterns = [\\n    /scan_guid[\\\"\\']?\\\\s*[:=]\\\\s*[\\\"\\']([a-f0-9-]{8,})[\\\"\\']?/i,\\n    /data-scan-guid\\\\s*=\\\\s*[\\\"\\']([a-f0-9-]{8,})[\\\"\\']?/i\\n  ];\\n  \\n  for (const pattern of patterns) {\\n    const match = htmlContent.match(pattern);\\n    if (match && match[1]) return match[1];\\n  }\\n  return '';\\n}\\n\\n// Extract Place ID\\nfunction extractPlaceId(htmlContent) {\\n  const patterns = [\\n    /(ChIJ[A-Za-z0-9_-]{10,})/g,\\n    /place_id[\\\"\\']?\\\\s*[:=]\\\\s*[\\\"\\']([A-Za-z0-9_-]{10,})[\\\"\\']?/i\\n  ];\\n  \\n  for (const pattern of patterns) {\\n    const matches = htmlContent.match(pattern);\\n    if (matches) {\\n      if (pattern.global && matches[0]) return matches[0];\\n      if (matches[1]) return matches[1];\\n    }\\n  }\\n  return '';\\n}\\n\\nconst pinzData = extractPinzData(html);\\nconst scanGuid = extractScanGuid(html);\\nconst placeId = extractPlaceId(html);\\n\\nreturn {\\n  html_content: html,\\n  javascript_data: {\\n    pinz_array: pinzData,\\n    scan_guid: scanGuid,\\n    place_id: placeId,\\n    pinz_count: pinzData.length\\n  }\\n};"
+      },
+      "id": "extract-js",
+      "name": "Extract JavaScript Data",
+      "type": "n8n-nodes-base.function",
+      "typeVersion": 2,
+      "position": [500, 300]
+    },
+    {
+      "parameters": {
+        "dataType": "string",
+        "value1": "={{ $json.html_content }}",
+        "rules": {
+          "rules": [
+            {
+              "extractor": "css",
+              "cssSelector": ".business-info, .scan-info, h1, .rating",
+              "returnArray": true,
+              "attribute": "text"
+            }
+          ]
+        }
+      },
+      "id": "extract-summary",
+      "name": "Extract Summary Info",
+      "type": "n8n-nodes-base.htmlExtract",
+      "typeVersion": 1.2,
+      "position": [700, 200]
+    },
+    {
+      "parameters": {
+        "dataType": "string",
+        "value1": "={{ $json.html_content }}",
+        "rules": {
+          "rules": [
+            {
+              "extractor": "css",
+              "cssSelector": ".competitor-row, .competitor, [class*=competitor]",
+              "returnArray": true,
+              "attribute": "outerHTML"
+            }
+          ]
+        }
+      },
+      "id": "extract-competitors",
+      "name": "Extract Competitors",
+      "type": "n8n-nodes-base.htmlExtract",
+      "typeVersion": 1.2,
+      "position": [700, 300]
+    },
+    {
+      "parameters": {
+        "dataType": "string",
+        "value1": "={{ $json.html_content }}",
+        "rules": {
+          "rules": [
+            {
+              "extractor": "css",
+              "cssSelector": ".sponsored, .ad-listing, [class*=sponsored]",
+              "returnArray": true,
+              "attribute": "outerHTML"
+            }
+          ]
+        }
+      },
+      "id": "extract-sponsored",
+      "name": "Extract Sponsored",
+      "type": "n8n-nodes-base.htmlExtract",
+      "typeVersion": 1.2,
+      "position": [700, 400]
+    },
+    {
+      "parameters": {
+        "functionCode": "// Parse Summary Information\\nconst data = $input.first().json.data || [];\\n\\nconst summary = {};\\n\\n// Extract business name\\nfor (const item of data) {\\n  if (typeof item === 'string') {\\n    // Business name (usually in h1)\\n    if (!summary['business_name'] && item.length > 5 && item.length < 100) {\\n      summary['business_name'] = item.trim();\\n    }\\n    \\n    // Rating\\n    const ratingMatch = item.match(/([0-9]\\\\.[0-9])\\\\s*out\\\\s*of\\\\s*5/i);\\n    if (ratingMatch) summary['rating'] = ratingMatch[1];\\n    \\n    // Reviews\\n    const reviewMatch = item.match(/\\\\((\\\\d+)\\\\s*reviews?\\\\)/i);\\n    if (reviewMatch) summary['reviews'] = reviewMatch[1];\\n    \\n    // Ranking info\\n    const rankMatch = item.match(/best\\\\s*rank[:\\\\s]*(\\\\d+)/i);\\n    if (rankMatch) summary['best_rank'] = rankMatch[1];\\n  }\\n}\\n\\nreturn { summary_info: summary };"
+      },
+      "id": "parse-summary",
+      "name": "Parse Summary",
+      "type": "n8n-nodes-base.function",
+      "typeVersion": 2,
+      "position": [900, 200]
+    },
+    {
+      "parameters": {
+        "functionCode": "// Parse Competitors\\nconst data = $input.first().json.data || [];\\nconst competitors = [];\\n\\nfor (const html of data) {\\n  if (typeof html === 'string') {\\n    const competitor = {};\\n    \\n    // Name\\n    const nameMatch = html.match(/<[^>]*class[^>]*name[^>]*>([^<]+)/i) || \\n                     html.match(/<h[0-9][^>]*>([^<]+)</i);\\n    if (nameMatch) competitor.name = nameMatch[1].trim();\\n    \\n    // Rating\\n    const ratingMatch = html.match(/([0-9]\\\\.[0-9])\\\\s*out\\\\s*of\\\\s*5/i);\\n    if (ratingMatch) competitor.rating = ratingMatch[1];\\n    \\n    // Reviews\\n    const reviewMatch = html.match(/\\\\((\\\\d+)\\\\s*reviews?\\\\)/i);\\n    if (reviewMatch) competitor.reviews = reviewMatch[1];\\n    \\n    // Address\\n    const addressMatch = html.match(/<[^>]*address[^>]*>([^<]+)/i);\\n    if (addressMatch) competitor.address = addressMatch[1].trim();\\n    \\n    // Website\\n    const websiteMatch = html.match(/href=\\\"([^\\\"]+)\\\"/i);\\n    if (websiteMatch) competitor.website = websiteMatch[1];\\n    \\n    if (competitor.name) competitors.push(competitor);\\n  }\\n}\\n\\nreturn { competitors: competitors };"
+      },
+      "id": "parse-competitors",
+      "name": "Parse Competitors",
+      "type": "n8n-nodes-base.function",
+      "typeVersion": 2,
+      "position": [900, 300]
+    },
+    {
+      "parameters": {
+        "functionCode": "// Parse Sponsored Listings\\nconst data = $input.first().json.data || [];\\nconst sponsored = [];\\n\\nfor (const html of data) {\\n  if (typeof html === 'string') {\\n    const listing = {};\\n    \\n    // Name\\n    const nameMatch = html.match(/<[^>]*class[^>]*title[^>]*>([^<]+)/i) ||\\n                     html.match(/<h[0-9][^>]*>([^<]+)</i);\\n    if (nameMatch) listing.name = nameMatch[1].trim();\\n    \\n    // Description\\n    const descMatch = html.match(/<[^>]*class[^>]*desc[^>]*>([^<]+)/i);\\n    if (descMatch) listing.description = descMatch[1].trim();\\n    \\n    // Link\\n    const linkMatch = html.match(/href=\\\"([^\\\"]+)\\\"/i);\\n    if (linkMatch) listing.link = linkMatch[1];\\n    \\n    if (listing.name) sponsored.push(listing);\\n  }\\n}\\n\\nreturn { sponsored_listings: sponsored };"
+      },
+      "id": "parse-sponsored",
+      "name": "Parse Sponsored",
+      "type": "n8n-nodes-base.function",
+      "typeVersion": 2,
+      "position": [900, 400]
+    },
+    {
+      "parameters": {
+        "mode": "combine",
+        "combinationMode": "mergeByPosition",
+        "options": {}
+      },
+      "id": "merge-all",
+      "name": "Merge All Data",
+      "type": "n8n-nodes-base.merge",
+      "typeVersion": 3,
+      "position": [1100, 300]
+    },
+    {
+      "parameters": {
+        "functionCode": "// Combine Final Data\\nconst allData = $input.all();\\n\\n// Extract data from each input\\nconst jsData = allData.find(item => item.json.javascript_data)?.json.javascript_data || {};\\nconst summary = allData.find(item => item.json.summary_info)?.json.summary_info || {};\\nconst competitors = allData.find(item => item.json.competitors)?.json.competitors || [];\\nconst sponsored = allData.find(item => item.json.sponsored_listings)?.json.sponsored_listings || [];\\n\\n// Enhanced map data from pinz\\nconst mapData = [];\\nif (jsData.pinz_array && jsData.pinz_array.length > 0) {\\n  jsData.pinz_array.forEach((pin, index) => {\\n    mapData.push({\\n      index: index + 1,\\n      latitude: pin.lat || 'N/A',\\n      longitude: pin.lng || 'N/A',\\n      title: pin.title || 'N/A',\\n      rank: pin.rank || 'N/A'\\n    });\\n  });\\n}\\n\\n// Final clean data structure\\nconst finalData = {\\n  business_info: {\\n    name: summary.business_name || 'Unknown',\\n    rating: summary.rating || 'N/A',\\n    reviews: summary.reviews || '0',\\n    best_rank: summary.best_rank || 'N/A'\\n  },\\n  competitors: competitors,\\n  sponsored_listings: sponsored,\\n  map_data: mapData,\\n  javascript_data: {\\n    scan_guid: jsData.scan_guid || '',\\n    place_id: jsData.place_id || '',\\n    total_pins: jsData.pinz_count || 0\\n  },\\n  metadata: {\\n    scraped_at: new Date().toISOString(),\\n    total_competitors: competitors.length,\\n    total_sponsored: sponsored.length,\\n    total_map_points: mapData.length,\\n    scraper_version: '5.0-clean'\\n  }\\n};\\n\\nreturn finalData;"
+      },
+      "id": "combine-data",
+      "name": "Combine Final Data",
+      "type": "n8n-nodes-base.function",
+      "typeVersion": 2,
+      "position": [1300, 300]
+    },
+    {
+      "parameters": {
+        "operation": "toFile",
+        "fileFormat": "xlsx",
+        "options": {
+          "fileName": "={{ 'local_rank_report_' + $now.format('YYYYMMDD_HHmmss') + '.xlsx' }}",
+          "sheetName": "Local Rank Report"
+        }
+      },
+      "id": "export-excel",
+      "name": "Export to Excel",
+      "type": "n8n-nodes-base.convertToFile",
+      "typeVersion": 1.1,
+      "position": [1500, 250]
+    },
+    {
+      "parameters": {
+        "chatId": "={{ $json.telegram_chat_id || '@default_channel' }}",
+        "text": "🏢 *Local Rank Report*\\n\\n📊 *Business:* {{ $json.business_info.name }}\\n⭐ *Rating:* {{ $json.business_info.rating }}/5.0\\n💬 *Reviews:* {{ $json.business_info.reviews }}\\n🎯 *Best Rank:* {{ $json.business_info.best_rank }}\\n\\n📈 *Analysis:*\\n🏆 Competitors: {{ $json.metadata.total_competitors }}\\n📢 Sponsored: {{ $json.metadata.total_sponsored }}\\n📍 Map Points: {{ $json.metadata.total_map_points }}\\n\\n⏰ Report: {{ $now.format('DD.MM.YYYY HH:mm') }}",
+        "additionalFields": {
+          "parse_mode": "Markdown"
+        }
+      },
+      "id": "send-telegram",
+      "name": "Send Telegram",
+      "type": "n8n-nodes-base.telegram",
+      "typeVersion": 1.1,
+      "position": [1500, 350]
+    },
+    {
+      "parameters": {},
+      "id": "stop-success",
+      "name": "Success",
+      "type": "n8n-nodes-base.stopAndError",
+      "typeVersion": 1,
+      "position": [1700, 300]
+    },
+    {
+      "parameters": {
+        "message": "Local Rank Scraper failed: {{ $json.error || 'Unknown error' }}"
+      },
+      "id": "stop-error",
+      "name": "Error Handler",
+      "type": "n8n-nodes-base.stopAndError",
+      "typeVersion": 1,
+      "position": [1700, 500]
+    }
+  ],
+  "connections": {
+    "Webhook Trigger": {
+      "main": [
+        [
+          {
+            "node": "Fetch HTML",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Fetch HTML": {
+      "main": [
+        [
+          {
+            "node": "Extract JavaScript Data",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ],
+      "onError": [
+        [
+          {
+            "node": "Error Handler",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Extract JavaScript Data": {
+      "main": [
+        [
+          {
+            "node": "Extract Summary Info",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Extract Competitors",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Extract Sponsored",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ],
+      "onError": [
+        [
+          {
+            "node": "Error Handler",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Extract Summary Info": {
+      "main": [
+        [
+          {
+            "node": "Parse Summary",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Extract Competitors": {
+      "main": [
+        [
+          {
+            "node": "Parse Competitors",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Extract Sponsored": {
+      "main": [
+        [
+          {
+            "node": "Parse Sponsored",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Parse Summary": {
+      "main": [
+        [
+          {
+            "node": "Merge All Data",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Parse Competitors": {
+      "main": [
+        [
+          {
+            "node": "Merge All Data",
+            "type": "main",
+            "index": 1
+          }
+        ]
+      ]
+    },
+    "Parse Sponsored": {
+      "main": [
+        [
+          {
+            "node": "Merge All Data",
+            "type": "main",
+            "index": 2
+          }
+        ]
+      ]
+    },
+    "Merge All Data": {
+      "main": [
+        [
+          {
+            "node": "Combine Final Data",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Combine Final Data": {
+      "main": [
+        [
+          {
+            "node": "Export to Excel",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Send Telegram",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ],
+      "onError": [
+        [
+          {
+            "node": "Error Handler",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Export to Excel": {
+      "main": [
+        [
+          {
+            "node": "Success",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Send Telegram": {
+      "main": [
+        [
+          {
+            "node": "Success",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "pinData": {},
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "staticData": {},
+  "tags": [
+    {
+      "id": "local-rank",
+      "name": "Local Rank"
+    },
+    {
+      "id": "scraping",
+      "name": "Web Scraping"
+    },
+    {
+      "id": "clean",
+      "name": "Clean Version"
+    }
+  ],
+  "triggerCount": 1,
+  "updatedAt": "2025-01-08T15:00:00.000Z",
+  "versionId": "5.0"
+}

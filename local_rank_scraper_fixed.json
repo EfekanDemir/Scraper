@@ -1,0 +1,149 @@
+{
+  "name": "Local Rank Scraper - Fixed Version",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "local-rank-test",
+        "options": {}
+      },
+      "id": "webhook-trigger",
+      "name": "Webhook Trigger",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [100, 400]
+    },
+    {
+      "parameters": {
+        "method": "GET",
+        "url": "={{ $json.scan_url || 'https://httpbin.org/html' }}",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "User-Agent",
+              "value": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36"
+            },
+            {
+              "name": "Accept",
+              "value": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8"
+            }
+          ]
+        },
+        "options": {
+          "timeout": 30000,
+          "followRedirect": true,
+          "response": {
+            "responseFormat": "string"
+          }
+        }
+      },
+      "id": "fetch-html",
+      "name": "Fetch HTML",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [300, 400]
+    },
+    {
+      "parameters": {
+        "functionCode": "// N8N Function Node - Test Processing\n// Get HTML data from previous node\nconst htmlData = $input.first().json.data || $input.first().json.body || '';\n\n// Simple validation and processing\nconst result = {\n  original_data_length: htmlData.length,\n  has_content: htmlData.length > 100,\n  contains_html: htmlData.includes('<html>') || htmlData.includes('<!DOCTYPE'),\n  timestamp: new Date().toISOString(),\n  status: htmlData.length > 0 ? 'success' : 'no_data',\n  preview: htmlData.substring(0, 200) + (htmlData.length > 200 ? '...' : '')\n};\n\n// Return the result - N8N expects this format\nreturn result;"
+      },
+      "id": "process-data",
+      "name": "Process Data",
+      "type": "n8n-nodes-base.function",
+      "typeVersion": 2,
+      "position": [500, 400]
+    },
+    {
+      "parameters": {
+        "operation": "toFile",
+        "fileFormat": "json",
+        "options": {
+          "fileName": "test_result.json"
+        }
+      },
+      "id": "export-result",
+      "name": "Export Result",
+      "type": "n8n-nodes-base.convertToFile",
+      "typeVersion": 1.1,
+      "position": [700, 400]
+    },
+    {
+      "parameters": {
+        "message": "Test workflow failed: {{ $json.error || 'Unknown error' }}"
+      },
+      "id": "error-handler",
+      "name": "Error Handler",
+      "type": "n8n-nodes-base.stopAndError",
+      "typeVersion": 1,
+      "position": [500, 550]
+    }
+  ],
+  "connections": {
+    "webhook-trigger": {
+      "main": [
+        [
+          {
+            "node": "fetch-html",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "fetch-html": {
+      "main": [
+        [
+          {
+            "node": "process-data",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ],
+      "onError": [
+        [
+          {
+            "node": "error-handler",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "process-data": {
+      "main": [
+        [
+          {
+            "node": "export-result",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ],
+      "onError": [
+        [
+          {
+            "node": "error-handler",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "pinData": {},
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "staticData": {},
+  "tags": [
+    {
+      "id": "test",
+      "name": "Test Version"
+    }
+  ],
+  "triggerCount": 1,
+  "updatedAt": "2025-01-08T17:00:00.000Z",
+  "versionId": "1.0"
+}

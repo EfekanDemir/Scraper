@@ -101,7 +101,7 @@
     },
     {
       "parameters": {
-        "functionCode": "// js_extractor.py modülü fonksiyonalitesi\n// JavaScript verilerini çıkarır\n\nconst htmlContent = $input.first().json.data || $input.first().json.html_content || $input.first().json.body;\n\n// Extract pinz data\nfunction extractPinzData(html) {\n  const pinzRegex = /var\\s+pinz\\s*=\\s*(\\[.*?\\]);/s;\n  const match = html.match(pinzRegex);\n  if (match) {\n    try {\n      // JavaScript boolean/null values'ı Python eşdeğerleriyle değiştir\n      let jsonStr = match[1]\n        .replace(/\\btrue\\b/gi, 'true')\n        .replace(/\\bfalse\\b/gi, 'false')\n        .replace(/\\bnull\\b/gi, 'null');\n      return JSON.parse(jsonStr);\n    } catch (e) {\n      return [];\n    }\n  }\n  return [];\n}\n\n// Extract scan_guid\nfunction extractScanGuid(html) {\n  const scanMatch = html.match(/scan_guid['\"]?\\s*[:=]\\s*['\"]([^'\"]+)['\"]/i);\n  return scanMatch ? scanMatch[1] : '';\n}\n\n// Extract place_id\nfunction extractPlaceId(html) {\n  const placeMatch = html.match(/place_id['\"]?\\s*[:=]\\s*['\"]([^'\"]+)['\"]/i);\n  return placeMatch ? placeMatch[1] : '';\n}\n\n// Validate input data\nif (!htmlContent || typeof htmlContent !== 'string') {\n  return {\n    html_content: '',\n    javascript_data: {\n      pinz_array: [],\n      scan_guid: '',\n      place_id: '',\n      pinz_count: 0,\n      error: 'No valid HTML content found'\n    }\n  };\n}\n\n// Extract all JavaScript data\nconst pinzData = extractPinzData(htmlContent);\nconst scanGuid = extractScanGuid(htmlContent);\nconst placeId = extractPlaceId(htmlContent);\n\nreturn {\n  html_content: htmlContent,\n  javascript_data: {\n    pinz_array: pinzData,\n    scan_guid: scanGuid,\n    place_id: placeId,\n    pinz_count: pinzData.length\n  }\n};"
+        "functionCode": "// js_extractor.py modülü fonksiyonalitesi\n// JavaScript verilerini çıkarır - FIXED VERSION\n\nconst htmlContent = $input.first().json.data || $input.first().json.html_content || $input.first().json.body;\n\n// Extract pinz data - Geliştirilmiş regex patterns\nfunction extractPinzData(html) {\n  const patterns = [\n    /var\\s+pinz\\s*=\\s*(\\[[\\s\\S]*?\\]);/i,\n    /pinz\\s*:\\s*(\\[[\\s\\S]*?\\])/i,\n    /\"pinz\"\\s*:\\s*(\\[[\\s\\S]*?\\])/i,\n    /window\\.pinz\\s*=\\s*(\\[[\\s\\S]*?\\]);/i\n  ];\n  \n  for (const pattern of patterns) {\n    const match = html.match(pattern);\n    if (match && match[1]) {\n      try {\n        let jsonStr = match[1]\n          .replace(/\\\\'/g, \"'\")\n          .replace(/\\\\\"/g, '\"')\n          .replace(/\\btrue\\b/gi, 'true')\n          .replace(/\\bfalse\\b/gi, 'false')\n          .replace(/\\bnull\\b/gi, 'null')\n          .replace(/\\bundefined\\b/gi, 'null')\n          .replace(/,\\s*}/g, '}')\n          .replace(/,\\s*]/g, ']');\n        return JSON.parse(jsonStr);\n      } catch (e) {\n        console.log('Pinz parse error:', e.message);\n        continue;\n      }\n    }\n  }\n  return [];\n}\n\n// Extract scan_guid - Daha robust patterns\nfunction extractScanGuid(html) {\n  const patterns = [\n    /scan_guid['\"]?\\s*[:=]\\s*['\"]([a-f0-9-]{8,})['\"]?/i,\n    /scan[_-]?guid['\"]?\\s*[:=]\\s*['\"]([a-f0-9-]{8,})['\"]?/i,\n    /\"scan_guid\"\\s*:\\s*['\"]([a-f0-9-]{8,})['\"]?/i,\n    /data-scan-guid\\s*=\\s*['\"]([a-f0-9-]{8,})['\"]?/i\n  ];\n  \n  for (const pattern of patterns) {\n    const match = html.match(pattern);\n    if (match && match[1] && match[1].length > 8) {\n      return match[1];\n    }\n  }\n  return '';\n}\n\n// Extract place_id - Kesin patterns for Google Place IDs\nfunction extractPlaceId(html) {\n  const patterns = [\n    /place_id['\"]?\\s*[:=]\\s*['\"]([A-Za-z0-9_-]{10,})['\"]?/i,\n    /\"place_id\"\\s*:\\s*['\"]([A-Za-z0-9_-]{10,})['\"]?/i,\n    /data-place-id\\s*=\\s*['\"]([A-Za-z0-9_-]{10,})['\"]?/i,\n    /(ChIJ[A-Za-z0-9_-]+)/g,\n    /google\\.maps\\.places\\.PlaceId\\s*=\\s*['\"]([A-Za-z0-9_-]+)['\"]?/i\n  ];\n  \n  for (const pattern of patterns) {\n    const matches = html.match(pattern);\n    if (matches) {\n      if (pattern.global) {\n        // For ChIJ pattern, return first valid match\n        for (const match of matches) {\n          if (match.startsWith('ChIJ') && match.length > 15) {\n            return match;\n          }\n        }\n      } else if (matches[1] && matches[1].length > 10) {\n        return matches[1];\n      }\n    }\n  }\n  return '';\n}\n\n// Validate input data\nif (!htmlContent || typeof htmlContent !== 'string') {\n  return {\n    html_content: '',\n    javascript_data: {\n      pinz_array: [],\n      scan_guid: '',\n      place_id: '',\n      pinz_count: 0,\n      error: 'No valid HTML content found'\n    }\n  };\n}\n\n// Extract all JavaScript data\nconst pinzData = extractPinzData(htmlContent);\nconst scanGuid = extractScanGuid(htmlContent);\nconst placeId = extractPlaceId(htmlContent);\n\n// Additional validation\nconst isValidGuid = scanGuid.length >= 8 && /^[a-f0-9-]+$/i.test(scanGuid);\nconst isValidPlaceId = placeId.length >= 10;\n\nreturn {\n  html_content: htmlContent,\n  javascript_data: {\n    pinz_array: pinzData,\n    scan_guid: scanGuid,\n    place_id: placeId,\n    pinz_count: pinzData.length,\n    validation: {\n      valid_guid: isValidGuid,\n      valid_place_id: isValidPlaceId,\n      html_length: htmlContent.length\n    }\n  }\n};"
       },
       "id": "3c4d5e6f-7g8h-9i0j-1k2l-m3n4o5p6q7r8",
       "name": "Function - Extract JS Data",
@@ -305,6 +305,84 @@
     },
     {
       "parameters": {
+        "dataType": "string",
+        "value1": "={{ $json.html_content }}",
+        "rules": {
+          "rules": [
+            {
+              "extractor": "css",
+              "cssSelector": ".detailed-result, .result-detail, [class*=\"detail\"], .ranking-detail, .location-result",
+              "returnArray": true,
+              "attribute": "outerHTML"
+            }
+          ]
+        }
+      },
+      "id": "detail-extract-001",
+      "name": "HTML Extract - Detailed Results",
+      "type": "n8n-nodes-base.htmlExtract",
+      "typeVersion": 1.2,
+      "position": [
+        940,
+        600
+      ],
+      "notes": "html_parser.py - Detaylı sonuçlar parsing"
+    },
+    {
+      "parameters": {
+        "dataType": "string",
+        "value1": "={{ $json.html_content }}",
+        "rules": {
+          "rules": [
+            {
+              "extractor": "css",
+              "cssSelector": ".map-data, .location-data, [class*=\"map\"], [data-lat], [data-lng], .coords",
+              "returnArray": true,
+              "attribute": "outerHTML"
+            }
+          ]
+        }
+      },
+      "id": "map-extract-001",
+      "name": "HTML Extract - Map Data",
+      "type": "n8n-nodes-base.htmlExtract",
+      "typeVersion": 1.2,
+      "position": [
+        940,
+        720
+      ],
+      "notes": "html_parser.py - Harita verileri parsing"
+    },
+    {
+      "parameters": {
+        "functionCode": "// Detailed results parsing\nconst detailedHtml = $input.first().json.data || [];\n\nfunction parseDetailedResults(detailElements) {\n  const details = [];\n  \n  detailElements.forEach(element => {\n    if (typeof element === 'string') {\n      const detail = {};\n      \n      // Extract ranking position\n      const rankMatch = element.match(/rank[^>]*>\\s*#?([0-9]+)|position[^>]*>\\s*([0-9]+)/i);\n      if (rankMatch) detail['Sıralama'] = rankMatch[1] || rankMatch[2];\n      \n      // Extract location name\n      const locationMatch = element.match(/location[^>]*>([^<]+)|city[^>]*>([^<]+)/i);\n      if (locationMatch) detail['Konum'] = (locationMatch[1] || locationMatch[2]).trim();\n      \n      // Extract distance\n      const distanceMatch = element.match(/([0-9]+(?:[\\.,][0-9]+)?)\\s*km/i);\n      if (distanceMatch) detail['Mesafe'] = distanceMatch[1] + ' km';\n      \n      // Extract search volume\n      const volumeMatch = element.match(/volume[^>]*>([^<]+)|searches[^>]*>([^<]+)/i);\n      if (volumeMatch) detail['Arama Hacmi'] = (volumeMatch[1] || volumeMatch[2]).trim();\n      \n      // Extract business name for this location\n      const businessMatch = element.match(/business[^>]*>([^<]+)|name[^>]*>([^<]+)/i);\n      if (businessMatch) detail['İşletme'] = (businessMatch[1] || businessMatch[2]).trim();\n      \n      if (detail['Sıralama'] || detail['Konum'] || detail['İşletme']) {\n        details.push(detail);\n      }\n    }\n  });\n  \n  return details;\n}\n\nconst detailedResults = parseDetailedResults(detailedHtml);\n\nreturn {\n  detayli_sonuclar: detailedResults\n};"
+      },
+      "id": "parse-details-001",
+      "name": "Function - Parse Detailed Results",
+      "type": "n8n-nodes-base.function",
+      "typeVersion": 2,
+      "position": [
+        1160,
+        600
+      ],
+      "notes": "html_parser.py - Detaylı sonuçlar parsing"
+    },
+    {
+      "parameters": {
+        "functionCode": "// Map data parsing\\nconst mapHtml = $input.first().json.data || [];\\n\\nfunction parseMapData(mapElements) {\\n  const mapData = [];\\n  \\n  mapElements.forEach(element => {\\n    if (typeof element === 'string') {\\n      const location = {};\\n      \\n      // Extract latitude with simple patterns\\n      const latMatch = element.match(/data-lat=.([0-9.-]+).|latitude.>([^<]+)/i);\\n      if (latMatch) location['Enlem'] = latMatch[1] || latMatch[2];\\n      \\n      // Extract longitude with simple patterns\\n      const lngMatch = element.match(/data-lng=.([0-9.-]+).|longitude.>([^<]+)/i);\\n      if (lngMatch) location['Boylam'] = lngMatch[1] || lngMatch[2];\\n      \\n      // Extract address\\n      const addressMatch = element.match(/address[^>]*>([^<]+)/i);\\n      if (addressMatch) location['Adres'] = addressMatch[1].trim();\\n      \\n      // Extract marker info\\n      const markerMatch = element.match(/title[^>]*>([^<]+)/i);\\n      if (markerMatch) location['Marker Bilgisi'] = markerMatch[1];\\n      \\n      if (location['Enlem'] || location['Boylam'] || location['Adres']) {\\n        mapData.push(location);\\n      }\\n    }\\n  });\\n  \\n  return mapData;\\n}\\n\\nconst mapResults = parseMapData(mapHtml);\\n\\nreturn {\\n  harita_verileri: mapResults\\n};"
+      },
+      "id": "parse-map-001",
+      "name": "Function - Parse Map Data",
+      "type": "n8n-nodes-base.function",
+      "typeVersion": 2,
+      "position": [
+        1160,
+        720
+      ],
+      "notes": "html_parser.py - Harita verileri parsing"
+    },
+    {
+      "parameters": {
         "mode": "combine",
         "combinationMode": "mergeByPosition",
         "options": {}
@@ -341,6 +419,38 @@
         "combinationMode": "mergeByPosition",
         "options": {}
       },
+      "id": "merge-4-details",
+      "name": "Merge - + Details",
+      "type": "n8n-nodes-base.merge",
+      "typeVersion": 3,
+      "position": [
+        1600,
+        400
+      ],
+      "notes": "Detaylı sonuçları ekler"
+    },
+    {
+      "parameters": {
+        "mode": "combine",
+        "combinationMode": "mergeByPosition",
+        "options": {}
+      },
+      "id": "merge-5-map-data",
+      "name": "Merge - + Map Data",
+      "type": "n8n-nodes-base.merge",
+      "typeVersion": 3,
+      "position": [
+        1800,
+        450
+      ],
+      "notes": "Harita verilerini ekler"
+    },
+    {
+      "parameters": {
+        "mode": "combine",
+        "combinationMode": "mergeByPosition",
+        "options": {}
+      },
       "id": "merge-3-add-api",
       "name": "Merge - + API",
       "type": "n8n-nodes-base.merge",
@@ -353,7 +463,7 @@
     },
     {
       "parameters": {
-        "functionCode": "// data_exporter.py modülü fonksiyonalitesi\n// Tüm verileri birleştir ve metadata ekle\n\nconst ozet = $input.all().find(item => item.json.ozet_bilgiler)?.json.ozet_bilgiler || {};\nconst rakipler = $input.all().find(item => item.json.rakipler)?.json.rakipler || [];\nconst sponsorlu = $input.all().find(item => item.json.sponsorlu_listeler)?.json.sponsorlu_listeler || [];\nconst jsData = $input.all().find(item => item.json.javascript_data)?.json.javascript_data || {};\n\n// Map verileri çıkar\nconst haritaVerileri = [];\nif (jsData.pinz_array) {\n  jsData.pinz_array.forEach((pin, index) => {\n    haritaVerileri.push({\n      'Index': index + 1,\n      'Latitude': pin.lat || 'N/A',\n      'Longitude': pin.lng || 'N/A',\n      'Title': pin.title || 'N/A',\n      'URL': pin.url || 'N/A'\n    });\n  });\n}\n\n// Final data structure\nconst finalData = {\n  ozet_bilgiler: ozet,\n  rakipler: rakipler,\n  sponsorlu_listeler: sponsorlu,\n  detayli_sonuclar: [], // API'den gelecek\n  harita_verileri: haritaVerileri,\n  javascript_verileri: {\n    scan_guid: jsData.scan_guid || '',\n    place_id: jsData.place_id || '',\n    pinz_count: jsData.pinz_count || 0\n  },\n  api_verileri: [], // API'den gelecek\n  metadata: {\n    scraped_at: new Date().toISOString(),\n    url: 'https://www.local-rank.report/scan/97919fde-e478-4081-983f-7e0065b6b5bb',\n    scraper_version: '4.0',\n    method: 'n8n_modular_hybrid',\n    total_competitors: rakipler.length,\n    total_locations: haritaVerileri.length\n  }\n};\n\nreturn finalData;"
+        "functionCode": "// data_exporter.py modülü fonksiyonalitesi - UPDATED VERSION\n// Tüm verileri birleştir ve metadata ekle\n\nconst ozet = $input.all().find(item => item.json.ozet_bilgiler)?.json.ozet_bilgiler || {};\nconst rakipler = $input.all().find(item => item.json.rakipler)?.json.rakipler || [];\nconst sponsorlu = $input.all().find(item => item.json.sponsorlu_listeler)?.json.sponsorlu_listeler || [];\nconst detayliSonuclar = $input.all().find(item => item.json.detayli_sonuclar)?.json.detayli_sonuclar || [];\nconst haritaVerileri = $input.all().find(item => item.json.harita_verileri)?.json.harita_verileri || [];\nconst jsData = $input.all().find(item => item.json.javascript_data)?.json.javascript_data || {};\nconst apiData = $input.all().find(item => item.json.api_data)?.json.api_data || {};\n\n// Enhanced map data from JavaScript pinz array\nconst enhancedMapData = [...haritaVerileri];\nif (jsData.pinz_array && jsData.pinz_array.length > 0) {\n  jsData.pinz_array.forEach((pin, index) => {\n    enhancedMapData.push({\n      'Index': index + 1,\n      'Source': 'JavaScript',\n      'Latitude': pin.lat || 'N/A',\n      'Longitude': pin.lng || 'N/A',\n      'Title': pin.title || 'N/A',\n      'URL': pin.url || 'N/A',\n      'Rank': pin.rank || 'N/A',\n      'Distance': pin.distance || 'N/A'\n    });\n  });\n}\n\n// Enhanced JavaScript data with validation\nconst enhancedJsData = {\n  pinz: jsData.pinz_array || [],\n  scan_guid: jsData.scan_guid || '',\n  place_id: jsData.place_id || '',\n  validation: jsData.validation || {},\n  pinz_count: (jsData.pinz_array || []).length\n};\n\n// Enhanced API data\nconst enhancedApiData = {\n  analytics_data: apiData.analytics_data || [],\n  competitors_data: apiData.competitors_data || [],\n  ranking_data: apiData.ranking_data || []\n};\n\n// Final data structure - COMPLETE\nconst finalData = {\n  ozet_bilgiler: ozet,\n  rakipler: rakipler,\n  sponsorlu_listeler: sponsorlu,\n  detayli_sonuclar: detayliSonuclar,\n  harita_verileri: enhancedMapData,\n  api_verileri: enhancedApiData,\n  javascript_verileri: enhancedJsData,\n  metadata: {\n    scraped_at: new Date().toISOString(),\n    url: 'https://www.local-rank.report/scan/97919fde-e478-4081-983f-7e0065b6b5bb',\n    scraper_version: '4.1',\n    method: 'modular_hybrid_enhanced',\n    selenium_used: false,\n    total_competitors: rakipler.length,\n    total_sponsored: sponsorlu.length,\n    total_detailed_results: detayliSonuclar.length,\n    total_map_points: enhancedMapData.length,\n    parsing_success: {\n      js_data: Object.keys(jsData).length > 0,\n      competitors: rakipler.length > 0,\n      sponsored: sponsorlu.length > 0,\n      summary: Object.keys(ozet).length > 0\n    }\n  }\n};\n\nreturn {\n  data: JSON.stringify(finalData, null, 2)\n};"
       },
       "id": "3m4n5o6p-7q8r-9s0t-1u2v-w3x4y5z6a7b8",
       "name": "Function - Combine All Data",
@@ -365,39 +475,24 @@
       ],
       "notes": "data_exporter.py - Veri birleştirme"
     },
+
     {
       "parameters": {
-        "fileName": "modular_scraped_data_{{ $now.format('YYYYMMDD_HHmmss') }}.json",
-        "dataPropertyName": "data",
-        "options": {}
-      },
-      "id": "4n5o6p7q-8r9s-0t1u-2v3w-x4y5z6a7b8c9",
-      "name": "Write Binary File - JSON",
-      "type": "n8n-nodes-base.writeBinaryFile",
-      "typeVersion": 1,
-      "position": [
-        1980,
-        280
-      ],
-      "notes": "JSON dosyası oluştur"
-    },
-    {
-      "parameters": {
-        "operation": "toFile",
-        "fileFormat": "csv",
-        "options": {
-          "fileName": "={{ 'rakipler_' + $now.format('YYYYMMDD_HHmmss') + '.csv' }}"
+        "chatId": "={{ $json.telegram_chat_id || '@your_channel' }}",
+        "text": "🏢 *Local Rank Report*\\n\\n📊 *İşletme:* {{ $json.ozet_bilgiler['İşletme Adı'] || 'N/A' }}\\n📍 *Adres:* {{ $json.ozet_bilgiler['Adres'] || 'N/A' }}\\n⭐ *Puan:* {{ $json.ozet_bilgiler['Puan'] || 'N/A' }}\\n💬 *Yorumlar:* {{ $json.ozet_bilgiler['Yorum Sayısı'] || 'N/A' }}\\n\\n📈 *Sıralama Bilgileri:*\\n🎯 En İyi Sıralama: {{ $json.ozet_bilgiler['Best rank'] || 'N/A' }}\\n📊 Ortalama Sıralama: {{ $json.ozet_bilgiler['Average rank (Ranked Locations)'] || 'N/A' }}\\n📍 Sıralanan Lokasyon: {{ $json.ozet_bilgiler['Ranked Locations'] || 'N/A' }}\\n\\n🏆 *Rakip Sayısı:* {{ ($json.rakipler || []).length }}\\n📢 *Sponsorlu Liste:* {{ ($json.sponsorlu_listeler || []).length }}\\n\\n✅ Rapor hazırlandı: {{ $now.format('DD.MM.YYYY HH:mm') }}",
+        "additionalFields": {
+          "parse_mode": "Markdown"
         }
       },
-      "id": "5o6p7q8r-9s0t-1u2v-3w4x-y5z6a7b8c9d0",
-      "name": "Convert to File - CSV Competitors",
-      "type": "n8n-nodes-base.convertToFile",
+      "id": "telegram-node-001",
+      "name": "Telegram",
+      "type": "n8n-nodes-base.telegram",
       "typeVersion": 1.1,
       "position": [
         1980,
         400
       ],
-      "notes": "Rakipler CSV dosyası"
+      "notes": "Telegram bildirimi gönder"
     },
     {
       "parameters": {
@@ -480,6 +575,15 @@
             "index": 0
           }
         ]
+      ],
+      "onError": [
+        [
+          {
+            "node": "Stop and Error - Failure",
+            "type": "main",
+            "index": 0
+          }
+        ]
       ]
     },
     "Function - Extract JS Data": {
@@ -501,7 +605,26 @@
             "index": 0
           },
           {
+            "node": "HTML Extract - Detailed Results",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "HTML Extract - Map Data",
+            "type": "main",
+            "index": 0
+          },
+          {
             "node": "HTTP Request - API Competitors",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ],
+      "onError": [
+        [
+          {
+            "node": "Stop and Error - Failure",
             "type": "main",
             "index": 0
           }
@@ -585,7 +708,73 @@
         ]
       ]
     },
+    "HTML Extract - Detailed Results": {
+      "main": [
+        [
+          {
+            "node": "Function - Parse Detailed Results",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "HTML Extract - Map Data": {
+      "main": [
+        [
+          {
+            "node": "Function - Parse Map Data",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Function - Parse Detailed Results": {
+      "main": [
+        [
+          {
+            "node": "Merge - + Details",
+            "type": "main",
+            "index": 1
+          }
+        ]
+      ]
+    },
+    "Function - Parse Map Data": {
+      "main": [
+        [
+          {
+            "node": "Merge - + Map Data",
+            "type": "main",
+            "index": 1
+          }
+        ]
+      ]
+    },
     "Merge - + Sponsored": {
+      "main": [
+        [
+          {
+            "node": "Merge - + Details",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Merge - + Details": {
+      "main": [
+        [
+          {
+            "node": "Merge - + Map Data",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Merge - + Map Data": {
       "main": [
         [
           {
@@ -605,6 +794,15 @@
             "index": 1
           }
         ]
+      ],
+      "onError": [
+        [
+          {
+            "node": "Stop and Error - Failure",
+            "type": "main",
+            "index": 0
+          }
+        ]
       ]
     },
     "Merge - + API": {
@@ -622,45 +820,28 @@
       "main": [
         [
           {
-            "node": "Write Binary File - JSON",
-            "type": "main",
-            "index": 0
-          },
-          {
-            "node": "Convert to File - CSV Competitors",
-            "type": "main",
-            "index": 0
-          },
-          {
             "node": "Convert to File - Excel",
             "type": "main",
             "index": 0
+          },
+          {
+            "node": "Telegram",
+            "type": "main",
+            "index": 0
           }
         ]
-      ]
-    },
-    "Write Binary File - JSON": {
-      "main": [
+      ],
+      "onError": [
         [
           {
-            "node": "Stop - Success",
+            "node": "Stop and Error - Failure",
             "type": "main",
             "index": 0
           }
         ]
       ]
     },
-    "Convert to File - CSV Competitors": {
-      "main": [
-        [
-          {
-            "node": "Stop - Success",
-            "type": "main",
-            "index": 0
-          }
-        ]
-      ]
-    },
+
     "Convert to File - Excel": {
       "main": [
         [
@@ -668,6 +849,61 @@
             "node": "Stop - Success",
             "type": "main",
             "index": 0
+          }
+        ]
+      ]
+    },
+    "Telegram": {
+      "main": [
+        [
+          {
+            "node": "Stop - Success",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "HTML Extract - Detailed Results": {
+      "main": [
+        [
+          {
+            "node": "Function - Parse Detailed Results",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "HTML Extract - Map Data": {
+      "main": [
+        [
+          {
+            "node": "Function - Parse Map Data",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Function - Parse Detailed Results": {
+      "main": [
+        [
+          {
+            "node": "Merge - + Details",
+            "type": "main",
+            "index": 1
+          }
+        ]
+      ]
+    },
+    "Function - Parse Map Data": {
+      "main": [
+        [
+          {
+            "node": "Merge - + Map Data",
+            "type": "main",
+            "index": 1
           }
         ]
       ]
