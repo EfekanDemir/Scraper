@@ -436,14 +436,33 @@
     {
       "id": "json-exporter-001",
       "name": "11A. JSON Export",
-      "type": "n8n-nodes-base.write",
+      "type": "n8n-nodes-base.writeBinaryFile",
       "position": [2100, 150],
       "parameters": {
         "fileName": "={{ $('URL ve Ayar Hazırlama').item.json.base_filename }}_{{ $('URL ve Ayar Hazırlama').item.json.timestamp }}.json",
-        "data": "={{ JSON.stringify($json, null, 2) }}",
+        "dataPropertyName": "data",
         "options": {}
       },
       "typeVersion": 1
+    },
+    {
+      "id": "json-formatter-001",
+      "name": "JSON Formatter",
+      "type": "n8n-nodes-base.set",
+      "position": [2000, 150],
+      "parameters": {
+        "fields": {
+          "values": [
+            {
+              "name": "data",
+              "type": "string",
+              "stringValue": "={{ JSON.stringify($json, null, 2) }}"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "typeVersion": 3.2
     },
     {
       "id": "excel-exporter-001",
@@ -454,8 +473,7 @@
         "operation": "write",
         "fileFormat": "xlsx",
         "options": {
-          "fileName": "={{ $('URL ve Ayar Hazırlama').item.json.base_filename }}_{{ $('URL ve Ayar Hazırlama').item.json.timestamp }}.xlsx",
-          "sheetName": "scraped_data"
+          "fileName": "={{ $('URL ve Ayar Hazırlama').item.json.base_filename }}_{{ $('URL ve Ayar Hazırlama').item.json.timestamp }}.xlsx"
         }
       },
       "typeVersion": 2
@@ -463,26 +481,43 @@
     {
       "id": "csv-exporter-ozet-001",
       "name": "11C. CSV Export - Özet",
-      "type": "n8n-nodes-base.write",
+      "type": "n8n-nodes-base.spreadsheetFile",
       "position": [2100, 350],
       "parameters": {
-        "fileName": "={{ $('URL ve Ayar Hazırlama').item.json.base_filename }}_{{ $('URL ve Ayar Hazırlama').item.json.timestamp }}_ozet_bilgiler.csv",
-        "data": "={{ 'business_name,location,search_term\\n' + $json.ozet_bilgiler.business_name + ',' + $json.ozet_bilgiler.location + ',' + $json.ozet_bilgiler.search_term }}",
+        "operation": "write",
+        "fileFormat": "csv",
+        "options": {
+          "fileName": "={{ $('URL ve Ayar Hazırlama').item.json.base_filename }}_{{ $('URL ve Ayar Hazırlama').item.json.timestamp }}_ozet_bilgiler.csv",
+          "includeHeaders": true
+        }
+      },
+      "typeVersion": 2
+    },
+    {
+      "id": "csv-exporter-rakipler-001",
+      "name": "11D. CSV Export - Rakipler",
+      "type": "n8n-nodes-base.splitOut",
+      "position": [2050, 450],
+      "parameters": {
+        "fieldName": "rakipler",
         "options": {}
       },
       "typeVersion": 1
     },
     {
-      "id": "csv-exporter-rakipler-001",
-      "name": "11D. CSV Export - Rakipler",
-      "type": "n8n-nodes-base.write",
-      "position": [2100, 450],
+      "id": "csv-exporter-rakipler-002",
+      "name": "11D2. CSV Write - Rakipler",
+      "type": "n8n-nodes-base.spreadsheetFile",
+      "position": [2200, 450],
       "parameters": {
-        "fileName": "={{ $('URL ve Ayar Hazırlama').item.json.base_filename }}_{{ $('URL ve Ayar Hazırlama').item.json.timestamp }}_rakipler.csv",
-        "data": "={{ 'name,rating,address\\n' + $json.rakipler.map(r => r.name + ',' + r.rating + ',' + r.address).join('\\n') }}",
-        "options": {}
+        "operation": "write",
+        "fileFormat": "csv",
+        "options": {
+          "fileName": "={{ $('URL ve Ayar Hazırlama').item.json.base_filename }}_{{ $('URL ve Ayar Hazırlama').item.json.timestamp }}_rakipler.csv",
+          "includeHeaders": true
+        }
       },
-      "typeVersion": 1
+      "typeVersion": 2
     },
     {
       "id": "summary-generator-001",
@@ -665,7 +700,7 @@
       "main": [
         [
           {
-            "node": "11A. JSON Export",
+            "node": "JSON Formatter",
             "type": "main",
             "index": 0
           },
@@ -686,6 +721,28 @@
           },
           {
             "node": "12. Özet Rapor Oluşturucu",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "JSON Formatter": {
+      "main": [
+        [
+          {
+            "node": "11A. JSON Export",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "11D. CSV Export - Rakipler": {
+      "main": [
+        [
+          {
+            "node": "11D2. CSV Write - Rakipler",
             "type": "main",
             "index": 0
           }
